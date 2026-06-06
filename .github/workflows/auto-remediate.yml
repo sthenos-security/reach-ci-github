@@ -282,7 +282,8 @@ jobs:
             --repository "${GITHUB_REPOSITORY}" \
             --branch "$proof_branch" \
             --commit "$proof_commit" \
-            --run-url "$run_url"
+            --run-url "$run_url" \
+            --workspace "${GITHUB_WORKSPACE}"
           reachctl report . --format json --output .reachable/ci-artifacts/reachable-report.json || true
           reachctl report . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
 

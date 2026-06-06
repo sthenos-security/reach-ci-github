@@ -211,7 +211,7 @@ The workflow publishes sanitized evidence only:
 
 | Artifact | Purpose |
 |----------|---------|
-| Release proof page | Standard `reachable.ci.proof_page` output: branch, commit, scan ID, release blockers, defended items, and PR/run links. |
+| Release proof page | Standard `reachable.ci.proof_page` output: branch, commit, scan ID, release blockers, defended items, PR/run links, and expandable threat-vector/data-flow evidence. |
 | Summary JSON | Machine-readable run summary. |
 | Remediation ledger | Sanitized list of remediation rules and outcomes. |
 | SARIF export | Compatibility upload for GitHub code scanning. Not authoritative. |
@@ -313,6 +313,7 @@ Reachable wheel under `reachable.ci`, including:
 - cache/install evidence
 - DB-backed proof gates
 - release proof pages
+- expandable DB-backed evidence paths / simple call graph rows
 - export sanitization
 - PR/MR helper contracts
 

@@ -34,4 +34,7 @@ Detailed rows should include:
 - file location
 - package/fix when applicable
 - short reason for defended findings
-- expandable evidence path or call graph when available
+- expandable DB-backed evidence with three parts:
+  - threat vector: entry, sink, exploitability verdict, and release gate
+  - decision trace: how Reachable detected, classified, attacked, and gated it
+  - data flow graph: the source/call/data path from `attack_path_json`
