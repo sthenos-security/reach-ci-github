@@ -1,0 +1,27 @@
+name: Reachable Auto Remediation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+  actions: write
+  pages: write
+  id-token: write
+
+jobs:
+  reachable:
+    uses: sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1
+    with:
+      target_branch: main
+      remediate: true
+      rescan_only: false
+      remediation_mode: codex-openai
+      max_batches: 3
+      rescan_strategy: each_batch
+      create_pr: true
+      run_project_tests: true
+    secrets: inherit
+

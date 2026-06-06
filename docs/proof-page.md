@@ -1,0 +1,37 @@
+# Release Proof Page
+
+The Reachable CI proof page is for release managers and reviewers.
+
+It should answer four questions quickly:
+
+1. What branch, commit, run, and scan IDs produced this proof?
+2. What was release-blocking before remediation?
+3. What changed on the remediation branch?
+4. Does the proof scan show zero release blockers, or are any items deferred?
+
+The page should read from Reachable DB evidence or sanitized DB exports. SARIF is
+a compatibility export and must never be treated as the verdict source.
+
+Recommended top-level cards:
+
+| Card | Meaning |
+|------|---------|
+| Verdict | Pass, partial, or failed proof. |
+| Baseline blockers | Release-blocking findings on the source branch. |
+| Fixed blockers | Findings no longer blocking after proof scan. |
+| Deferred items | Items that need human review or a Reachable engine improvement. |
+| Branch and PR | Remediation branch and open PR link. |
+| Runtime and cost | Elapsed time, model tokens, and estimated AI spend. |
+
+Detailed rows should include:
+
+- signal family
+- risk
+- reachability
+- exploitability
+- release-blocker status
+- file location
+- package/fix when applicable
+- short reason for defended findings
+- expandable evidence path or call graph when available
+

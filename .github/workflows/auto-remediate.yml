@@ -1,0 +1,287 @@
+name: Reachable Auto Remediation
+
+on:
+  workflow_call:
+    inputs:
+      target_branch:
+        type: string
+        default: main
+      remediate:
+        type: boolean
+        default: true
+      rescan_only:
+        type: boolean
+        default: false
+      remediation_mode:
+        type: string
+        default: codex-openai
+      prompt_profile:
+        type: string
+        default: balanced
+      signal_types:
+        type: string
+        default: all
+      max_batches:
+        type: number
+        default: 3
+      rescan_strategy:
+        type: string
+        default: each_batch
+      scan_extra_flags:
+        type: string
+        default: ""
+      create_pr:
+        type: boolean
+        default: true
+      publish_report:
+        type: boolean
+        default: true
+      require_ai:
+        type: boolean
+        default: true
+      fresh_scan:
+        type: boolean
+        default: false
+      run_project_tests:
+        type: boolean
+        default: true
+      project_test_command:
+        type: string
+        default: ""
+      reachable_version:
+        type: string
+        default: ""
+      reachable_dist_repo:
+        type: string
+        default: sthenos-security/reach-dist
+    secrets:
+      OPENAI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      REACHABLE_API_KEY:
+        required: false
+      REACHABLE_GITHUB_TOKEN:
+        required: false
+      MCP_GITHUB_TOKEN:
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+  actions: write
+  pages: write
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_OPTIONS: --no-deprecation
+
+jobs:
+  reachable:
+    runs-on: ubuntu-latest
+    env:
+      REACHABLE_DIST_REPO: ${{ inputs.reachable_dist_repo }}
+      REACHABLE_VERSION: ${{ inputs.reachable_version }}
+      REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
+      REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
+      REACHABLE_REMEDIATION_MODE: ${{ inputs.remediation_mode }}
+      REACHABLE_PROMPT_PROFILE: ${{ inputs.prompt_profile }}
+      REACHABLE_SIGNAL_TYPES: ${{ inputs.signal_types }}
+      REACHABLE_MAX_BATCHES: ${{ inputs.max_batches }}
+      REACHABLE_RESCAN_STRATEGY: ${{ inputs.rescan_strategy }}
+      REACHABLE_SCAN_EXTRA_FLAGS: ${{ inputs.scan_extra_flags }}
+      REACHABLE_CREATE_PR: ${{ inputs.create_pr }}
+      REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
+      REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
+      REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
+      REACHABLE_RUN_PROJECT_TESTS: ${{ inputs.run_project_tests }}
+      REACHABLE_PROJECT_TEST_COMMAND: ${{ inputs.project_test_command }}
+      REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
+      REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
+      MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.target_branch }}
+          token: ${{ github.token }}
+
+      - name: Resolve remediation mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${REACHABLE_REMEDIATION_MODE}" in
+            codex-openai)
+              echo "REACHABLE_AGENT=codex" >> "$GITHUB_ENV"
+              echo "REACHABLE_LLM_PROVIDER=openai" >> "$GITHUB_ENV"
+              if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+                echo "remediation_mode=codex-openai requires OPENAI_API_KEY." >&2
+                exit 2
+              fi
+              ;;
+            claude-anthropic)
+              echo "REACHABLE_AGENT=claude" >> "$GITHUB_ENV"
+              echo "REACHABLE_LLM_PROVIDER=claude" >> "$GITHUB_ENV"
+              if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+                echo "remediation_mode=claude-anthropic requires ANTHROPIC_API_KEY." >&2
+                exit 2
+              fi
+              ;;
+            *)
+              echo "unsupported remediation_mode: ${REACHABLE_REMEDIATION_MODE}" >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Setup Reachable
+        uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
+        with:
+          version: ${{ inputs.reachable_version }}
+          dist-repo: ${{ inputs.reachable_dist_repo }}
+          fresh-scan: ${{ inputs.fresh_scan }}
+
+      - name: Baseline scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .reachable/ci-artifacts
+          provider_args=()
+          if [ -n "${REACHABLE_LLM_PROVIDER:-}" ]; then
+            provider_args+=(--ai-provider "$REACHABLE_LLM_PROVIDER")
+          fi
+          # shellcheck disable=SC2206
+          extra_args=(${REACHABLE_SCAN_EXTRA_FLAGS})
+          reachctl scan . --ci \
+            --branch "${GITHUB_REF_NAME:-${{ inputs.target_branch }}}" \
+            --commit "$(git rev-parse HEAD)" \
+            --sarif .reachable/ci-artifacts/reachable.sarif \
+            "${provider_args[@]}" \
+            "${extra_args[@]}"
+
+      - name: Create remediation branch
+        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="$(git rev-parse --short=8 HEAD)"
+          branch_timestamp="$(date -u +%Y%m%d-%H%M%S)"
+          branch="reachable-remediate-${branch_timestamp}-${source_commit}"
+          git config user.name "reachable-remediation-bot"
+          git config user.email "security@sthenos.com"
+          git switch -c "$branch"
+          echo "REACHABLE_REMEDIATION_BRANCH=$branch" >> "$GITHUB_ENV"
+          echo "Reachable remediation branch: $branch"
+
+      - name: Install selected coding agent
+        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${REACHABLE_AGENT}" in
+            codex)
+              npm install -g @openai/codex
+              printenv OPENAI_API_KEY | codex login --with-api-key
+              ;;
+            claude)
+              npm install -g @anthropic-ai/claude-code
+              ;;
+            *)
+              echo "unsupported coding agent: ${REACHABLE_AGENT}" >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Remediate and verify
+        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          max_batches="${REACHABLE_MAX_BATCHES:-3}"
+          for batch in $(seq 1 "$max_batches"); do
+            echo "== Reachable remediation batch ${batch}/${max_batches} =="
+            rm -rf .reachable/remediation-bundle
+            signal_args=()
+            if [ "${REACHABLE_SIGNAL_TYPES}" = "all" ]; then
+              signal_args+=(--all)
+            else
+              IFS=',' read -ra families <<< "${REACHABLE_SIGNAL_TYPES}"
+              for family in "${families[@]}"; do
+                family="$(echo "$family" | xargs)"
+                [ -n "$family" ] && signal_args+=(--signal-type "$family")
+              done
+            fi
+            reachctl remediate . \
+              --context ci \
+              --agent "${REACHABLE_AGENT}" \
+              --mode branch \
+              --branch-name "${REACHABLE_REMEDIATION_BRANCH}" \
+              --profile "${REACHABLE_PROMPT_PROFILE}" \
+              "${signal_args[@]}"
+            if [ ! -f .reachable/remediation-bundle/prompt.md ]; then
+              echo "No remediation bundle was produced; stopping batch loop."
+              break
+            fi
+            case "${REACHABLE_AGENT}" in
+              codex) codex exec --full-auto --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
+              claude) claude -p < .reachable/remediation-bundle/prompt.md ;;
+            esac
+            reachctl remediate . --cleanup || true
+            if [ "${REACHABLE_RUN_PROJECT_TESTS}" = "true" ] && [ -n "${REACHABLE_PROJECT_TEST_COMMAND}" ]; then
+              bash -lc "${REACHABLE_PROJECT_TEST_COMMAND}"
+            fi
+            if [ "${REACHABLE_RESCAN_STRATEGY}" = "each_batch" ]; then
+              reachctl scan . --ci --branch "${REACHABLE_REMEDIATION_BRANCH}" --commit "$(git rev-parse HEAD)"
+            fi
+          done
+
+      - name: Final proof scan
+        if: ${{ inputs.remediate || inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
+          reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"
+
+      - name: Publish report
+        if: ${{ always() && inputs.publish_report }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .reachable/ci-artifacts
+          reachctl report . --format json --output .reachable/ci-artifacts/reachable-report.json || true
+          reachctl report . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
+
+      - name: Upload Reachable artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: reachable-ci-artifacts
+          if-no-files-found: ignore
+          path: .reachable/ci-artifacts/**
+
+      - name: Push remediation branch
+        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No remediation changes to push."
+            exit 0
+          fi
+          git add -A
+          git commit -m "fix: reachable remediation"
+          git push origin "${REACHABLE_REMEDIATION_BRANCH}"
+
+      - name: Open remediation PR
+        if: ${{ inputs.remediate && !inputs.rescan_only && inputs.create_pr }}
+        uses: sthenos-security/reach-ci-github/actions/open-remediation-pr@v1
+        with:
+          branch: ${{ env.REACHABLE_REMEDIATION_BRANCH }}
+          base: ${{ inputs.target_branch }}
+          title: "Reachable remediation proof"

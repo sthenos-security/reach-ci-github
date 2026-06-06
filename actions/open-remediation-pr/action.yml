@@ -1,0 +1,34 @@
+name: Open Reachable Remediation PR
+description: Open a same-repository remediation pull request with GITHUB_TOKEN.
+
+inputs:
+  branch:
+    description: Same-repository remediation branch.
+    required: true
+  base:
+    description: Base branch.
+    required: true
+    default: main
+  title:
+    description: Pull request title.
+    required: false
+    default: Reachable remediation proof
+
+runs:
+  using: composite
+  steps:
+    - name: Open PR
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        echo "Opening Reachable remediation PR:"
+        echo "  base: ${{ inputs.base }}"
+        echo "  head: ${{ inputs.branch }}"
+        gh pr create \
+          --base "${{ inputs.base }}" \
+          --head "${{ inputs.branch }}" \
+          --title "${{ inputs.title }}" \
+          --body "DB-backed Reachable remediation branch. Review the published proof page and merge when ready."
+
