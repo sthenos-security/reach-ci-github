@@ -22,6 +22,6 @@ jobs:
       max_batches: 3
       rescan_strategy: each_batch
       create_pr: true
-      run_project_tests: true
+      run_project_tests: false
+      test_preset: none
     secrets: inherit
-

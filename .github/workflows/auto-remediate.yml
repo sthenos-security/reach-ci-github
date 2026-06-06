@@ -44,10 +44,10 @@ on:
         default: false
       run_project_tests:
         type: boolean
-        default: true
-      project_test_command:
+        default: false
+      test_preset:
         type: string
-        default: ""
+        default: none
       reachable_version:
         type: string
         default: ""
@@ -97,7 +97,7 @@ jobs:
       REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
       REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
       REACHABLE_RUN_PROJECT_TESTS: ${{ inputs.run_project_tests }}
-      REACHABLE_PROJECT_TEST_COMMAND: ${{ inputs.project_test_command }}
+      REACHABLE_TEST_PRESET: ${{ inputs.test_preset }}
       REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
       REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
       MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
@@ -232,8 +232,28 @@ jobs:
               claude) claude -p < .reachable/remediation-bundle/prompt.md ;;
             esac
             reachctl remediate . --cleanup || true
-            if [ "${REACHABLE_RUN_PROJECT_TESTS}" = "true" ] && [ -n "${REACHABLE_PROJECT_TEST_COMMAND}" ]; then
-              bash -lc "${REACHABLE_PROJECT_TEST_COMMAND}"
+            if [ "${REACHABLE_RUN_PROJECT_TESTS}" = "true" ]; then
+              case "${REACHABLE_TEST_PRESET}" in
+                none) echo "Project tests disabled: test_preset=none." ;;
+                go) go test ./... ;;
+                python-pytest) python -m pytest ;;
+                python-unittest) python -m unittest ;;
+                maven) mvn test ;;
+                gradle) gradle test ;;
+                npm) npm test ;;
+                pnpm) pnpm test ;;
+                yarn) yarn test ;;
+                rust) cargo test ;;
+                dotnet) dotnet test ;;
+                ruby-rspec) bundle exec rspec ;;
+                phpunit) vendor/bin/phpunit ;;
+                swift) xcodebuild test ;;
+                elixir) mix test ;;
+                *)
+                  echo "unsupported test_preset: ${REACHABLE_TEST_PRESET}" >&2
+                  exit 2
+                  ;;
+              esac
             fi
             if [ "${REACHABLE_RESCAN_STRATEGY}" = "each_batch" ]; then
               reachctl scan . --ci --branch "${REACHABLE_REMEDIATION_BRANCH}" --commit "$(git rev-parse HEAD)"
@@ -254,6 +274,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .reachable/ci-artifacts
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          proof_branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
+          proof_commit="$(git rev-parse HEAD)"
+          python -m reachable.ci.proof_page \
+            --output-dir .reachable/ci-artifacts/release-proof \
+            --repository "${GITHUB_REPOSITORY}" \
+            --branch "$proof_branch" \
+            --commit "$proof_commit" \
+            --run-url "$run_url"
           reachctl report . --format json --output .reachable/ci-artifacts/reachable-report.json || true
           reachctl report . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
 

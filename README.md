@@ -48,8 +48,8 @@ jobs:
       max_batches: 3
       rescan_strategy: each_batch
       create_pr: true
-      run_project_tests: true
-      project_test_command: "go test ./..."
+      run_project_tests: false
+      test_preset: none
     secrets: inherit
 ```
 
@@ -90,8 +90,12 @@ are enabled.
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
-| `run_project_tests` | `true` | Run the repository test command after agent edits. |
-| `project_test_command` | empty | Project-specific test command, such as `go test ./...`. |
+| `run_project_tests` | `false` | Run an allowlisted test preset after agent edits. Disabled by default because Reachable cannot know a customer's test layout. |
+| `test_preset` | `none` | Optional preset: `go`, `python-pytest`, `python-unittest`, `maven`, `gradle`, `npm`, `pnpm`, `yarn`, `rust`, `dotnet`, `ruby-rspec`, `phpunit`, `swift`, or `elixir`. |
+
+Reachable does not accept arbitrary test commands in this reusable workflow.
+Customers with custom test topology should keep those commands in their own CI
+jobs and let branch protection decide whether the remediation PR can merge.
 
 ## Published Evidence
 
@@ -99,13 +103,29 @@ The workflow publishes sanitized evidence only:
 
 | Artifact | Purpose |
 |----------|---------|
-| Release proof page | Release-manager view: branch, commit, scan IDs, fixed blockers, deferred items, and PR link. |
+| Release proof page | Standard `reachable.ci.proof_page` output: branch, commit, scan ID, release blockers, defended items, and PR/run links. |
 | Summary JSON | Machine-readable run summary. |
 | Remediation ledger | Sanitized list of remediation rules and outcomes. |
 | SARIF export | Compatibility upload for GitHub code scanning. Not authoritative. |
 
 The workflow must not publish private remediation prompts, generated rules,
 agent transcripts, raw witnesses, or local databases.
+
+## SDK Boundary
+
+The reusable workflow is intentionally thin. Standard behavior belongs in the
+Reachable wheel under `reachable.ci`, including:
+
+- workflow generation
+- settings and secret doctor output
+- cache/install evidence
+- DB-backed proof gates
+- release proof pages
+- export sanitization
+- PR/MR helper contracts
+
+Demo repositories can keep extra expected-contract checks, but customer
+repositories should only need variables and secrets.
 
 ## Manual PR Fallback
 
