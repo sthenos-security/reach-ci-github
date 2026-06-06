@@ -2,9 +2,25 @@
 
 Reusable GitHub Actions integration for Reachable autonomous remediation.
 
-This repository is the customer-facing CI package. Application repositories
-should call the reusable workflow here instead of copying demo scripts from a
-testbed repository.
+This repository is the customer-facing GitHub CI package. Application
+repositories should call the reusable workflow here, or generate that caller
+workflow with the Reachable SDK, instead of copying demo scripts from a testbed
+repository.
+
+The goal is simple: set a small number of variables/secrets, run a workflow, and
+receive DB-backed release evidence plus an optional remediation branch and PR.
+
+## Quick Start
+
+1. Add one model provider secret to the application repository:
+   `OPENAI_API_KEY` for the default Codex/OpenAI lane, or `ANTHROPIC_API_KEY`
+   for the Claude/Anthropic lane.
+2. Enable the GitHub repository settings listed in
+   [Repository Settings](#repository-settings).
+3. Add `.github/workflows/reachable-remediation.yml` using the example below,
+   or generate it with the SDK snippet in [SDK Usage](#sdk-usage).
+4. Run **Actions -> Reachable Auto Remediation -> Run workflow**.
+5. Review the proof artifacts, remediation branch, and PR if `create_pr=true`.
 
 ## What It Does
 
@@ -18,7 +34,48 @@ testbed repository.
 The pass/fail verdict is based on Reachable `repo.db` evidence. SARIF and other
 exports are compatibility artifacts, not the source of truth.
 
-## Minimal Setup
+## SDK Usage
+
+When the Reachable wheel is installed, generate the caller workflow from Python:
+
+```python
+from reachable.ci.autoremediation import (
+    GitHubAutoRemediationConfig,
+    write_github_workflow,
+)
+
+write_github_workflow(
+    ".github/workflows/reachable-remediation.yml",
+    GitHubAutoRemediationConfig(
+        remediation_mode="codex-openai",
+        max_batches=3,
+        create_pr=True,
+        publish_report=True,
+        run_project_tests=False,
+        test_preset="none",
+    ),
+)
+```
+
+For a simple Go repository:
+
+```python
+write_github_workflow(
+    ".github/workflows/reachable-remediation.yml",
+    GitHubAutoRemediationConfig(
+        remediation_mode="codex-openai",
+        max_batches=3,
+        create_pr=True,
+        run_project_tests=True,
+        test_preset="go",
+    ),
+)
+```
+
+The SDK deliberately does not accept arbitrary shell test commands. Use one of
+the allowlisted presets or keep custom test orchestration in your own CI jobs.
+
+## Minimal Workflow
 
 Add this file to the application repository:
 
@@ -74,7 +131,33 @@ The normal path uses the built-in `GITHUB_TOKEN`. A personal access token is not
 required for branch creation or PR creation when the repository settings above
 are enabled.
 
-## Inputs
+## Secrets And Variables
+
+### Required Provider Secret
+
+| Secret | Required When | Purpose |
+|--------|---------------|---------|
+| `OPENAI_API_KEY` | `remediation_mode=codex-openai` | Used by Reachable AI analysis and the Codex coding-agent lane. |
+| `ANTHROPIC_API_KEY` | `remediation_mode=claude-anthropic` | Used by Reachable AI analysis and the Claude Code lane. |
+
+Set these in GitHub:
+
+```text
+Repository -> Settings -> Secrets and variables -> Actions -> New repository secret
+```
+
+### Optional Reachable Secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `REACHABLE_API_KEY` | Optional Reachable product/cloud entitlement or enrichment token. |
+| `REACHABLE_GITHUB_TOKEN` | Optional scanner enrichment token for GitHub metadata/package context. Not used to control CI. |
+| `MCP_GITHUB_TOKEN` | Optional MCP context token. Not used to control CI. |
+
+### Workflow Inputs
+
+These are selected when a user starts the workflow manually or when a wrapper
+workflow calls this reusable workflow.
 
 | Input | Default | Purpose |
 |-------|---------|---------|
@@ -92,6 +175,31 @@ are enabled.
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
 | `run_project_tests` | `false` | Run an allowlisted test preset after agent edits. Disabled by default because Reachable cannot know a customer's test layout. |
 | `test_preset` | `none` | Optional preset: `go`, `python-pytest`, `python-unittest`, `maven`, `gradle`, `npm`, `pnpm`, `yarn`, `rust`, `dotnet`, `ruby-rspec`, `phpunit`, `swift`, or `elixir`. |
+| `reachable_version` | empty | Pin a Reachable release version. Empty uses the installer default/latest. |
+| `reachable_dist_repo` | `sthenos-security/reach-dist` | Distribution repository containing `install.sh`. |
+
+### Common Test Presets
+
+| Preset | Command |
+|--------|---------|
+| `go` | `go test ./...` |
+| `python-pytest` | `python -m pytest` |
+| `python-unittest` | `python -m unittest` |
+| `maven` | `mvn test` |
+| `gradle` | `gradle test` |
+| `npm` | `npm test` |
+| `pnpm` | `pnpm test` |
+| `yarn` | `yarn test` |
+| `rust` | `cargo test` |
+| `dotnet` | `dotnet test` |
+| `ruby-rspec` | `bundle exec rspec` |
+| `phpunit` | `vendor/bin/phpunit` |
+| `swift` | `xcodebuild test` |
+| `elixir` | `mix test` |
+
+Reachable cannot know where a customer's tests live in a monorepo. For complex
+repositories, leave `run_project_tests=false` and rely on existing branch
+protection or downstream CI jobs to validate the remediation branch.
 
 Reachable does not accept arbitrary test commands in this reusable workflow.
 Customers with custom test topology should keep those commands in their own CI
@@ -110,6 +218,90 @@ The workflow publishes sanitized evidence only:
 
 The workflow must not publish private remediation prompts, generated rules,
 agent transcripts, raw witnesses, or local databases.
+
+## Runbook
+
+### Assess Only
+
+Use this when you want a DB-backed posture report without code changes.
+
+```yaml
+with:
+  remediate: false
+  rescan_only: false
+  publish_report: true
+```
+
+Expected result:
+
+- baseline scan runs
+- sanitized proof artifacts are uploaded
+- no branch is created
+- no PR is opened
+
+### Remediate Without PR
+
+Use this when you want to inspect the generated branch before automating PRs.
+
+```yaml
+with:
+  remediate: true
+  create_pr: false
+  max_batches: 3
+  rescan_strategy: each_batch
+```
+
+Expected result:
+
+- remediation branch is pushed
+- proof scan runs against that branch
+- proof page records branch, commit, scan ID, and release blockers
+- reviewer opens a PR manually if desired
+
+### Remediate And Open PR
+
+Use this after the repository settings are validated.
+
+```yaml
+with:
+  remediate: true
+  create_pr: true
+  max_batches: 3
+  rescan_strategy: each_batch
+```
+
+Expected result:
+
+- remediation branch is pushed
+- proof scan runs against that branch
+- PR is opened with the DB-backed proof available as artifacts/report
+
+### Verify Existing Branch
+
+Use this to prove a remediation branch again without changing code.
+
+```yaml
+with:
+  target_branch: reachable-remediate-YYYYMMDD-HHMMSS-COMMIT
+  remediate: false
+  rescan_only: true
+```
+
+Expected result:
+
+- selected branch is scanned
+- proof page shows current blockers or pass state
+- no code is edited
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| `remediation_mode=codex-openai requires OPENAI_API_KEY` | Missing provider secret. | Add `OPENAI_API_KEY` to repository or organization Actions secrets. |
+| PR branch pushed but no PR opened | GitHub Actions cannot create PRs. | Enable "Allow GitHub Actions to create and approve pull requests" and `pull-requests: write`. |
+| Proof page reports blockers after remediation | The agent fixed only part of the queue or a finding needs manual review. | Review the branch and proof summary; rerun with more batches only if the remaining item is safe to automate. |
+| Project tests did not run | `run_project_tests=false` or `test_preset=none`. | Select an allowlisted preset, or rely on the repository's existing CI. |
+| Custom test command needed | Monorepo/project-specific test layout. | Keep that command in the application's own CI, not inside this reusable security workflow. |
 
 ## SDK Boundary
 
