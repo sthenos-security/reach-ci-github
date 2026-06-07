@@ -169,6 +169,7 @@ workflow calls this reusable workflow.
 | `signal_types` | `all` | Signal families to include in the remediation bundle. |
 | `max_batches` | `3` | Maximum serialized remediation loops. The workflow stops early when no release blockers remain. |
 | `rescan_strategy` | `each_batch` | Rescan after each batch or only at the end. |
+| `scan_extra_flags` | empty | Optional additional flags passed to `reachctl scan`; keep empty unless Reachable support asks for a specific scan flag. |
 | `create_pr` | `true` | Open a PR after DB proof passes. |
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
@@ -211,7 +212,7 @@ The workflow publishes sanitized evidence only:
 
 | Artifact | Purpose |
 |----------|---------|
-| Release proof page | Standard `reachable.ci.proof_page` output: branch, commit, scan ID, release blockers, defended items, PR/run links, and expandable threat-vector/data-flow evidence. |
+| Release proof page | Standard `reachable.ci.proof_page` output: branch, commit, scan ID, release blockers, defended items, PR/run links, and expandable threat-vector plus stack-style code/data-flow evidence. |
 | Summary JSON | Machine-readable run summary. |
 | Remediation ledger | Sanitized list of remediation rules and outcomes. |
 | SARIF export | Compatibility upload for GitHub code scanning. Not authoritative. |

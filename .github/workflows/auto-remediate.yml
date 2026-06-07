@@ -268,6 +268,32 @@ jobs:
           branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
           reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"
 
+      - name: Push remediation branch
+        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "REACHABLE_BRANCH_PUSHED=false" >> "$GITHUB_ENV"
+          git add -A -- . ':!.reachable/ci-artifacts/**' ':!.reachable/remediation-bundle/**'
+          if git diff --cached --quiet; then
+            echo "No remediation changes to push."
+            echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git commit -m "fix: reachable remediation"
+          git push origin "${REACHABLE_REMEDIATION_BRANCH}"
+          echo "REACHABLE_BRANCH_PUSHED=true" >> "$GITHUB_ENV"
+          echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Open remediation PR
+        id: open-remediation-pr
+        if: ${{ inputs.remediate && !inputs.rescan_only && inputs.create_pr && env.REACHABLE_BRANCH_PUSHED == 'true' }}
+        uses: sthenos-security/reach-ci-github/actions/open-remediation-pr@v1
+        with:
+          branch: ${{ env.REACHABLE_REMEDIATION_BRANCH }}
+          base: ${{ inputs.target_branch }}
+          title: "Reachable remediation proof"
+
       - name: Publish report
         if: ${{ always() && inputs.publish_report }}
         shell: bash
@@ -276,13 +302,14 @@ jobs:
           mkdir -p .reachable/ci-artifacts
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           proof_branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
-          proof_commit="$(git rev-parse HEAD)"
+          proof_commit="${REACHABLE_PROOF_COMMIT:-$(git rev-parse HEAD)}"
           python -m reachable.ci.proof_page \
             --output-dir .reachable/ci-artifacts/release-proof \
             --repository "${GITHUB_REPOSITORY}" \
             --branch "$proof_branch" \
             --commit "$proof_commit" \
             --run-url "$run_url" \
+            --pull-request-url "${{ steps.open-remediation-pr.outputs.pr-url }}" \
             --workspace "${GITHUB_WORKSPACE}"
           reachctl report . --format json --output .reachable/ci-artifacts/reachable-report.json || true
           reachctl report . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
@@ -294,24 +321,3 @@ jobs:
           name: reachable-ci-artifacts
           if-no-files-found: ignore
           path: .reachable/ci-artifacts/**
-
-      - name: Push remediation branch
-        if: ${{ inputs.remediate && !inputs.rescan_only }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            echo "No remediation changes to push."
-            exit 0
-          fi
-          git add -A
-          git commit -m "fix: reachable remediation"
-          git push origin "${REACHABLE_REMEDIATION_BRANCH}"
-
-      - name: Open remediation PR
-        if: ${{ inputs.remediate && !inputs.rescan_only && inputs.create_pr }}
-        uses: sthenos-security/reach-ci-github/actions/open-remediation-pr@v1
-        with:
-          branch: ${{ env.REACHABLE_REMEDIATION_BRANCH }}
-          base: ${{ inputs.target_branch }}
-          title: "Reachable remediation proof"

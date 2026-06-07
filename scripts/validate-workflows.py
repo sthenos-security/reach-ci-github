@@ -101,8 +101,8 @@ def validate_no_private_artifact_uploads() -> None:
 def validate_reusable_workflow_contract() -> None:
     path = ROOT / ".github" / "workflows" / "auto-remediate.yml"
     workflow = _load_yaml(path)
+    text = path.read_text(encoding="utf-8")
     if workflow is None:
-        text = path.read_text(encoding="utf-8")
         if "workflow_call:" not in text:
             raise AssertionError("auto-remediate.yml must expose workflow_call")
         if "contents: write" not in text or "pull-requests: write" not in text:
@@ -119,10 +119,37 @@ def validate_reusable_workflow_contract() -> None:
     print("reusable workflow contract ok")
 
 
+def validate_shared_helper_contract() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "auto-remediate.yml").read_text(encoding="utf-8")
+    action_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted((ROOT / "actions").rglob("*.yml"))
+    )
+    if "reach-testbed" in workflow or "reach-testbed" in action_text:
+        raise AssertionError("workflow/actions must not wrap testbed-specific scripts")
+    if "python -m reachable.ci.proof_page" not in workflow:
+        raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
+    for expected in (
+        "--pull-request-url",
+        "git add -A -- . ':!.reachable/ci-artifacts/**' ':!.reachable/remediation-bundle/**'",
+        ".reachable/ci-artifacts/release-proof",
+        ".reachable/ci-artifacts/reachable-report.json",
+        ".reachable/ci-artifacts/reachable-summary.txt",
+    ):
+        if expected not in workflow:
+            raise AssertionError(f"workflow is missing standardized report output: {expected}")
+    if workflow.find("Push remediation branch") > workflow.find("Publish report"):
+        raise AssertionError("remediation branch must be committed before proof page publication")
+    if workflow.find("Open remediation PR") > workflow.find("Publish report"):
+        raise AssertionError("PR URL must be available before proof page publication")
+    print("shared helper/status page contract ok")
+
+
 def main() -> None:
     validate_yaml_files()
     validate_no_private_artifact_uploads()
     validate_reusable_workflow_contract()
+    validate_shared_helper_contract()
 
 
 if __name__ == "__main__":

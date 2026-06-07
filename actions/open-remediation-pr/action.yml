@@ -14,10 +14,16 @@ inputs:
     required: false
     default: Reachable remediation proof
 
+outputs:
+  pr-url:
+    description: URL of the created pull request.
+    value: ${{ steps.open-pr.outputs.pr-url }}
+
 runs:
   using: composite
   steps:
     - name: Open PR
+      id: open-pr
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -26,9 +32,10 @@ runs:
         echo "Opening Reachable remediation PR:"
         echo "  base: ${{ inputs.base }}"
         echo "  head: ${{ inputs.branch }}"
-        gh pr create \
+        pr_url="$(gh pr create \
           --base "${{ inputs.base }}" \
           --head "${{ inputs.branch }}" \
           --title "${{ inputs.title }}" \
-          --body "DB-backed Reachable remediation branch. Review the published proof page and merge when ready."
-
+          --body "DB-backed Reachable remediation branch. Review the published proof page and merge when ready.")"
+        echo "Reachable remediation PR: ${pr_url}"
+        echo "pr-url=${pr_url}" >> "$GITHUB_OUTPUT"
