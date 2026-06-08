@@ -228,7 +228,7 @@ jobs:
               break
             fi
             case "${REACHABLE_AGENT}" in
-              codex) codex exec --full-auto --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
+              codex) codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
               claude) claude -p < .reachable/remediation-bundle/prompt.md ;;
             esac
             reachctl remediate . --cleanup || true
@@ -346,8 +346,8 @@ jobs:
             --run-url "$run_url" \
             --pull-request-url "${{ steps.open-remediation-pr.outputs.pr-url }}" \
             --workspace "${GITHUB_WORKSPACE}"
-          reachctl report . --format json --output .reachable/ci-artifacts/reachable-report.json || true
-          reachctl report . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
+          reachctl export --repo . --format json --output .reachable/ci-artifacts/reachable-report.json || true
+          reachctl export --repo . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
 
       - name: Upload Reachable artifacts
         if: always()

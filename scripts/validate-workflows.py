@@ -130,6 +130,7 @@ def validate_shared_helper_contract() -> None:
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
+        "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check",
         "--pull-request-url",
         "git ls-files --modified --others --exclude-standard -z",
         "git add --pathspec-from-file=\"$stage_list\" --pathspec-file-nul",
