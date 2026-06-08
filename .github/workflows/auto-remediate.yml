@@ -260,20 +260,12 @@ jobs:
             fi
           done
 
-      - name: Final proof scan
-        if: ${{ inputs.remediate || inputs.rescan_only }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
-          reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"
-
-      - name: Push remediation branch
+      - name: Commit remediation changes
         if: ${{ inputs.remediate && !inputs.rescan_only }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "REACHABLE_BRANCH_PUSHED=false" >> "$GITHUB_ENV"
+          echo "REACHABLE_REMEDIATION_COMMITTED=false" >> "$GITHUB_ENV"
           stage_list="${RUNNER_TEMP:-/tmp}/reachable-stage-paths"
           candidate_list="${RUNNER_TEMP:-/tmp}/reachable-candidate-paths"
           git ls-files --modified --others --exclude-standard -z > "$candidate_list"
@@ -305,20 +297,40 @@ jobs:
                   fh.write(b"\0".join(p.encode("utf-8", "surrogateescape") for p in sorted(keep)) + b"\0")
           PY
           if [ ! -s "$stage_list" ]; then
-            echo "No remediation changes to push."
+            echo "No remediation changes to commit."
             echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
             exit 0
           fi
           git add --pathspec-from-file="$stage_list" --pathspec-file-nul
           if git diff --cached --quiet; then
-            echo "No remediation changes to push."
+            echo "No remediation changes to commit."
             echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
             exit 0
           fi
           git commit -m "fix: reachable remediation"
+          echo "REACHABLE_REMEDIATION_COMMITTED=true" >> "$GITHUB_ENV"
+          echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Final proof scan
+        if: ${{ inputs.remediate || inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
+          reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"
+
+      - name: Push remediation branch
+        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "REACHABLE_BRANCH_PUSHED=false" >> "$GITHUB_ENV"
+          if [ "${REACHABLE_REMEDIATION_COMMITTED:-false}" != "true" ]; then
+            echo "No remediation commit to push."
+            exit 0
+          fi
           git push origin "${REACHABLE_REMEDIATION_BRANCH}"
           echo "REACHABLE_BRANCH_PUSHED=true" >> "$GITHUB_ENV"
-          echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Open remediation PR
         id: open-remediation-pr
