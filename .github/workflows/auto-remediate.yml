@@ -274,7 +274,42 @@ jobs:
         run: |
           set -euo pipefail
           echo "REACHABLE_BRANCH_PUSHED=false" >> "$GITHUB_ENV"
-          git add -A -- . ':!.reachable/ci-artifacts/**' ':!.reachable/remediation-bundle/**'
+          stage_list="${RUNNER_TEMP:-/tmp}/reachable-stage-paths"
+          candidate_list="${RUNNER_TEMP:-/tmp}/reachable-candidate-paths"
+          git ls-files --modified --others --exclude-standard -z > "$candidate_list"
+          python3 - "$candidate_list" "$stage_list" <<'PY'
+          import sys
+
+          candidate_list = sys.argv[1]
+          stage_list = sys.argv[2]
+          with open(candidate_list, "rb") as fh:
+              raw = fh.read().split(b"\0")
+          keep = []
+          for item in raw:
+              if not item:
+                  continue
+              path = item.decode("utf-8", "surrogateescape")
+              if (
+                  path == ".reachable"
+                  or path.startswith(".reachable/")
+                  or path.endswith(".sarif")
+                  or path.rsplit("/", 1)[-1].startswith("reachable-")
+              ):
+                  continue
+              keep.append(path)
+
+          for path in keep:
+              print(path, file=sys.stderr)
+          with open(stage_list, "wb") as fh:
+              if keep:
+                  fh.write(b"\0".join(p.encode("utf-8", "surrogateescape") for p in sorted(keep)) + b"\0")
+          PY
+          if [ ! -s "$stage_list" ]; then
+            echo "No remediation changes to push."
+            echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git add --pathspec-from-file="$stage_list" --pathspec-file-nul
           if git diff --cached --quiet; then
             echo "No remediation changes to push."
             echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"

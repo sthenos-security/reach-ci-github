@@ -131,7 +131,8 @@ def validate_shared_helper_contract() -> None:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
         "--pull-request-url",
-        "git add -A -- . ':!.reachable/ci-artifacts/**' ':!.reachable/remediation-bundle/**'",
+        "git ls-files --modified --others --exclude-standard -z",
+        "git add --pathspec-from-file=\"$stage_list\" --pathspec-file-nul",
         ".reachable/ci-artifacts/release-proof",
         ".reachable/ci-artifacts/reachable-report.json",
         ".reachable/ci-artifacts/reachable-summary.txt",
