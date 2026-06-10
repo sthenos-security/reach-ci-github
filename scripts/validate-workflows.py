@@ -133,6 +133,7 @@ def validate_shared_helper_contract() -> None:
         "codex exec --model \"${REACHABLE_AGENT_MODEL}\" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check",
         "--permission-mode bypassPermissions",
         "--no-session-persistence",
+        "--verbose",
         "--output-format stream-json",
         "Apply the Reachable remediation task provided on stdin",
         "Reachable Python package is unavailable; skipping report publication.",

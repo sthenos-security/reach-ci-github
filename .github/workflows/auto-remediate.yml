@@ -243,6 +243,7 @@ jobs:
                 claude_args+=(
                   --permission-mode bypassPermissions
                   --no-session-persistence
+                  --verbose
                   --output-format stream-json
                   --max-budget-usd "${CLAUDE_MAX_BUDGET_USD:-5}"
                 )

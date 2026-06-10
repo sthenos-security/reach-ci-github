@@ -19,6 +19,7 @@ class WorkflowContractTests(unittest.TestCase):
     def test_claude_lane_uses_non_interactive_prompt_with_stdin(self) -> None:
         self.assertIn("--permission-mode bypassPermissions", WORKFLOW)
         self.assertIn("--no-session-persistence", WORKFLOW)
+        self.assertIn("--verbose", WORKFLOW)
         self.assertIn("--output-format stream-json", WORKFLOW)
         self.assertIn("Apply the Reachable remediation task provided on stdin", WORKFLOW)
         self.assertIn('claude "${claude_args[@]}" -p "Apply the Reachable remediation task provided on stdin to this repository.', WORKFLOW)
