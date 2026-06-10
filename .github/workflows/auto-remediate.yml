@@ -120,6 +120,7 @@ jobs:
             codex-openai)
               echo "REACHABLE_AGENT=codex" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=openai" >> "$GITHUB_ENV"
+              echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"
               if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
                 echo "remediation_mode=codex-openai requires OPENAI_API_KEY." >&2
                 exit 2
@@ -228,7 +229,7 @@ jobs:
               break
             fi
             case "${REACHABLE_AGENT}" in
-              codex) codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
+              codex) codex exec --model "${REACHABLE_AGENT_MODEL}" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
               claude) claude -p < .reachable/remediation-bundle/prompt.md ;;
             esac
             reachctl remediate . --cleanup || true

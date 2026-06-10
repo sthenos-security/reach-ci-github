@@ -84,7 +84,7 @@ Recommended production defaults:
 
 | Setting | Recommended Value | Why |
 |---------|-------------------|-----|
-| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. |
+| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. The Codex path pins `gpt-5.4-mini` unless you fork the workflow and override it. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
@@ -219,7 +219,7 @@ caller workflow.
 | `workflow_name` | `Reachable Auto Remediation` | Workflow `name` | Display name in GitHub Actions. |
 | `reusable_workflow` | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Job `uses` | Must include an explicit ref such as `@v1`. |
 | `target_branch` | `main` | `target_branch` dispatch default | Branch to scan or verify. |
-| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` requires `OPENAI_API_KEY`; `claude-anthropic` requires `ANTHROPIC_API_KEY`. |
+| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`; `claude-anthropic` requires `ANTHROPIC_API_KEY`. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
 | `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
