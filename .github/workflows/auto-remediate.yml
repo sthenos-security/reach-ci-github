@@ -133,6 +133,7 @@ jobs:
             claude-anthropic)
               echo "REACHABLE_AGENT=claude" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=claude" >> "$GITHUB_ENV"
+              echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"
               if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
                 echo "remediation_mode=claude-anthropic requires ANTHROPIC_API_KEY." >&2
                 exit 2
@@ -239,7 +240,13 @@ jobs:
                 if [ -n "${REACHABLE_AGENT_MODEL:-}" ]; then
                   claude_args+=(--model "${REACHABLE_AGENT_MODEL}")
                 fi
-                claude "${claude_args[@]}" -p < .reachable/remediation-bundle/prompt.md
+                claude_args+=(
+                  --permission-mode bypassPermissions
+                  --no-session-persistence
+                  --output-format stream-json
+                  --max-budget-usd "${CLAUDE_MAX_BUDGET_USD:-5}"
+                )
+                claude "${claude_args[@]}" -p "Apply the Reachable remediation task provided on stdin to this repository. Treat stdin as the authoritative instructions, make the requested changes, and stop when the task is complete." < .reachable/remediation-bundle/prompt.md
                 ;;
             esac
             reachctl remediate . --cleanup || true
@@ -358,6 +365,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .reachable/ci-artifacts
+          if ! command -v reachctl >/dev/null 2>&1; then
+            echo "Reachable CLI is unavailable; skipping report publication."
+            exit 0
+          fi
+          if ! python -c "import reachable.ci.proof_page" >/dev/null 2>&1; then
+            echo "Reachable Python package is unavailable; skipping report publication."
+            exit 0
+          fi
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           proof_branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
           proof_commit="${REACHABLE_PROOF_COMMIT:-$(git rev-parse HEAD)}"

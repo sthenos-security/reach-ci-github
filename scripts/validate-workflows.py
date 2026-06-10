@@ -130,7 +130,12 @@ def validate_shared_helper_contract() -> None:
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
-        "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check",
+        "codex exec --model \"${REACHABLE_AGENT_MODEL}\" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check",
+        "--permission-mode bypassPermissions",
+        "--no-session-persistence",
+        "--output-format stream-json",
+        "Apply the Reachable remediation task provided on stdin",
+        "Reachable Python package is unavailable; skipping report publication.",
         "--pull-request-url",
         "git ls-files --modified --others --exclude-standard -z",
         "git add --pathspec-from-file=\"$stage_list\" --pathspec-file-nul",
@@ -140,6 +145,8 @@ def validate_shared_helper_contract() -> None:
     ):
         if expected not in workflow:
             raise AssertionError(f"workflow is missing standardized report output: {expected}")
+    if 'claude "${claude_args[@]}" < .reachable/remediation-bundle/prompt.md' in workflow:
+        raise AssertionError("claude remediation lane must pass an explicit non-interactive prompt with -p")
     if workflow.find("Push remediation branch") > workflow.find("Publish report"):
         raise AssertionError("remediation branch must be committed before proof page publication")
     if workflow.find("Open remediation PR") > workflow.find("Publish report"):

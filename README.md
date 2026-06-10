@@ -70,6 +70,8 @@ On each autonomous remediation run, the workflow:
 3. Creates a bounded remediation branch.
 4. Builds a DB-backed remediation bundle for the selected signal families.
 5. Runs the selected coding-agent lane against that branch.
+   The Claude lane runs Claude Code non-interactively and feeds the generated
+   remediation task on stdin.
 6. Runs the selected project test preset when enabled.
 7. Rescans the branch to produce proof from the database, not from stale JSON.
 8. Pushes the branch, opens a PR when configured, and uploads sanitized proof
@@ -84,12 +86,12 @@ Recommended production defaults:
 
 | Setting | Recommended Value | Why |
 |---------|-------------------|-----|
-| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. The Codex path pins `gpt-5.4-mini` unless you fork the workflow and override it. |
-| `agent_model` | empty | Optional remediation-model override passed to Codex or Claude. |
+| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. The Codex path pins `gpt-5.4-mini`; the Claude path pins `claude-sonnet-4-5-20250929`. |
+| `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
-| `publish_report` | `true` | Gives reviewers a stable proof artifact. |
+| `publish_report` | `true` | Gives reviewers a stable proof artifact when Reachable setup succeeded; otherwise the workflow skips report rendering instead of failing late. |
 | `fresh_scan` | `false` | Faster normal CI; use `true` for release smoke tests. |
 | `run_project_tests` | repository-specific | Enable an allowlisted preset when it matches the repo; otherwise rely on existing CI. |
 
@@ -220,14 +222,14 @@ caller workflow.
 | `workflow_name` | `Reachable Auto Remediation` | Workflow `name` | Display name in GitHub Actions. |
 | `reusable_workflow` | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Job `uses` | Must include an explicit ref such as `@v1`. |
 | `target_branch` | `main` | `target_branch` dispatch default | Branch to scan or verify. |
-| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`; `claude-anthropic` requires `ANTHROPIC_API_KEY`. |
-| `agent_model` | empty | `agent_model` | Optional remediation-model override passed through to the selected coding agent. |
+| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`; `claude-anthropic` requires `ANTHROPIC_API_KEY` and defaults to `claude-sonnet-4-5-20250929`. |
+| `agent_model` | empty | `agent_model` | Optional remediation-model override passed through to the selected coding agent. Leave unset for the pinned defaults. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
 | `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
 | `rescan_strategy` | `each_batch` | `rescan_strategy` | `each_batch` or `final`. |
 | `create_pr` | `true` | `create_pr` | Opens a PR only after a branch is pushed. |
-| `publish_report` | `true` | `publish_report` | Publishes sanitized proof artifacts. |
+| `publish_report` | `true` | `publish_report` | Publishes sanitized proof artifacts. If Reachable never finished setup, the workflow skips report rendering instead of failing during cleanup. |
 | `require_ai` | `true` | `require_ai` | Fails early when the selected provider key is missing. |
 | `fresh_scan` | `false` | `fresh_scan` | Deletes `~/.reachable` before install/scan when true. |
 | `run_project_tests` | `false` | `run_project_tests` | Runs only allowlisted presets. |
