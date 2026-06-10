@@ -15,6 +15,9 @@ on:
       remediation_mode:
         type: string
         default: codex-openai
+      agent_model:
+        type: string
+        default: ""
       prompt_profile:
         type: string
         default: balanced
@@ -87,6 +90,7 @@ jobs:
       REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
       REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
       REACHABLE_REMEDIATION_MODE: ${{ inputs.remediation_mode }}
+      REACHABLE_AGENT_MODEL: ${{ inputs.agent_model }}
       REACHABLE_PROMPT_PROFILE: ${{ inputs.prompt_profile }}
       REACHABLE_SIGNAL_TYPES: ${{ inputs.signal_types }}
       REACHABLE_MAX_BATCHES: ${{ inputs.max_batches }}
@@ -230,7 +234,13 @@ jobs:
             fi
             case "${REACHABLE_AGENT}" in
               codex) codex exec --model "${REACHABLE_AGENT_MODEL}" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
-              claude) claude -p < .reachable/remediation-bundle/prompt.md ;;
+              claude)
+                claude_args=()
+                if [ -n "${REACHABLE_AGENT_MODEL:-}" ]; then
+                  claude_args+=(--model "${REACHABLE_AGENT_MODEL}")
+                fi
+                claude "${claude_args[@]}" -p < .reachable/remediation-bundle/prompt.md
+                ;;
             esac
             reachctl remediate . --cleanup || true
             if [ "${REACHABLE_RUN_PROJECT_TESTS}" = "true" ]; then
