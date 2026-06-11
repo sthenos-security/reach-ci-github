@@ -128,6 +128,7 @@ def validate_shared_helper_contract() -> None:
     helper_text = "\n".join(
         path.read_text(encoding="utf-8")
         for path in (
+            ROOT / "scripts" / "remediation-core.sh",
             ROOT / "scripts" / "run-agent.sh",
             ROOT / "scripts" / "stage-paths.py",
         )
@@ -141,14 +142,12 @@ def validate_shared_helper_contract() -> None:
         "claude-anthropic|anthropic-claude",
         "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
         "REACHABLE_AGENT_TIMEOUT_SEC",
-        "timeout --kill-after=30s \"${agent_timeout_sec}s\"",
-        "./scripts/run-agent.sh codex .reachable/remediation-bundle/prompt.md",
-        "./scripts/run-agent.sh claude .reachable/remediation-bundle/prompt.md",
+        "export REACHABLE_AGENT_RUNNER=\"./scripts/run-agent.sh\"",
+        "export REACHABLE_STAGE_PATHS_PY=\"./scripts/stage-paths.py\"",
+        "export REACHABLE_CORE_OUTPUTS_PATH=\"$outputs_file\"",
+        "./scripts/remediation-core.sh",
         "Reachable Python package is unavailable; skipping report publication.",
         "--pull-request-url",
-        "git ls-files --modified --others --exclude-standard -z",
-        "python3 ./scripts/stage-paths.py \"$candidate_list\" \"$stage_list\"",
-        "git add --pathspec-from-file=\"$stage_list\" --pathspec-file-nul",
         ".reachable/ci-artifacts/release-proof",
         ".reachable/ci-artifacts/reachable-report.json",
         ".reachable/ci-artifacts/reachable-summary.txt",
@@ -156,6 +155,12 @@ def validate_shared_helper_contract() -> None:
         if expected not in workflow:
             raise AssertionError(f"workflow is missing standardized report output: {expected}")
     for expected in (
+        "reachctl remediate .",
+        "--context ci",
+        "--mode branch",
+        "timeout --kill-after=30s \"${agent_timeout_sec}s\"",
+        "git ls-files --modified --others --exclude-standard -z",
+        "git add --pathspec-from-file=\"$stage_list\" --pathspec-file-nul",
         "codex exec",
         "--dangerously-bypass-approvals-and-sandbox",
         "--skip-git-repo-check",

@@ -216,100 +216,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          max_batches="${REACHABLE_MAX_BATCHES:-3}"
-          agent_timeout_sec="${REACHABLE_AGENT_TIMEOUT_SEC:-900}"
-          if ! [[ "$agent_timeout_sec" =~ ^[0-9]+$ ]] || [ "$agent_timeout_sec" -lt 1 ]; then
-            echo "agent_timeout_sec must be a positive integer number of seconds." >&2
-            exit 2
-          fi
-          for batch in $(seq 1 "$max_batches"); do
-            echo "== Reachable remediation batch ${batch}/${max_batches} =="
-            echo "Reachable agent timeout for this batch: ${agent_timeout_sec}s"
-            rm -rf .reachable/remediation-bundle
-            signal_args=()
-            if [ "${REACHABLE_SIGNAL_TYPES}" = "all" ]; then
-              signal_args+=(--all)
-            else
-              IFS=',' read -ra families <<< "${REACHABLE_SIGNAL_TYPES}"
-              for family in "${families[@]}"; do
-                family="$(echo "$family" | xargs)"
-                [ -n "$family" ] && signal_args+=(--signal-type "$family")
-              done
-            fi
-            reachctl remediate . \
-              --context ci \
-              --agent "${REACHABLE_AGENT}" \
-              --mode branch \
-              --branch-name "${REACHABLE_REMEDIATION_BRANCH}" \
-              --profile "${REACHABLE_PROMPT_PROFILE}" \
-              "${signal_args[@]}"
-            if [ ! -f .reachable/remediation-bundle/prompt.md ]; then
-              echo "No remediation bundle was produced; stopping batch loop."
-              break
-            fi
-            case "${REACHABLE_AGENT}" in
-              codex)
-                timeout --kill-after=30s "${agent_timeout_sec}s" \
-                  ./scripts/run-agent.sh codex .reachable/remediation-bundle/prompt.md
-                ;;
-              claude)
-                timeout --kill-after=30s "${agent_timeout_sec}s" \
-                  ./scripts/run-agent.sh claude .reachable/remediation-bundle/prompt.md
-                ;;
-            esac
-            reachctl remediate . --cleanup || true
-            if [ "${REACHABLE_RUN_PROJECT_TESTS}" = "true" ]; then
-              case "${REACHABLE_TEST_PRESET}" in
-                none) echo "Project tests disabled: test_preset=none." ;;
-                go) go test ./... ;;
-                python-pytest) python -m pytest ;;
-                python-unittest) python -m unittest ;;
-                maven) mvn test ;;
-                gradle) gradle test ;;
-                npm) npm test ;;
-                pnpm) pnpm test ;;
-                yarn) yarn test ;;
-                rust) cargo test ;;
-                dotnet) dotnet test ;;
-                ruby-rspec) bundle exec rspec ;;
-                phpunit) vendor/bin/phpunit ;;
-                swift) xcodebuild test ;;
-                elixir) mix test ;;
-                *)
-                  echo "unsupported test_preset: ${REACHABLE_TEST_PRESET}" >&2
-                  exit 2
-                  ;;
-              esac
-            fi
-            if [ "${REACHABLE_RESCAN_STRATEGY}" = "each_batch" ]; then
-              reachctl scan . --ci --branch "${REACHABLE_REMEDIATION_BRANCH}" --commit "$(git rev-parse HEAD)"
-            fi
-          done
-
-      - name: Commit remediation changes
-        if: ${{ inputs.remediate && !inputs.rescan_only }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "REACHABLE_REMEDIATION_COMMITTED=false" >> "$GITHUB_ENV"
-          stage_list="${RUNNER_TEMP:-/tmp}/reachable-stage-paths"
-          candidate_list="${RUNNER_TEMP:-/tmp}/reachable-candidate-paths"
-          git ls-files --modified --others --exclude-standard -z > "$candidate_list"
-          python3 ./scripts/stage-paths.py "$candidate_list" "$stage_list"
-          if [ ! -s "$stage_list" ]; then
-            echo "No remediation changes to commit."
-            echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          git add --pathspec-from-file="$stage_list" --pathspec-file-nul
-          if git diff --cached --quiet; then
-            echo "No remediation changes to commit."
-            echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-            exit 0
-          fi
-          git commit -m "fix: reachable remediation"
-          echo "REACHABLE_REMEDIATION_COMMITTED=true" >> "$GITHUB_ENV"
-          echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          outputs_file="${RUNNER_TEMP:-/tmp}/reachable-core-outputs"
+          export REACHABLE_AGENT_RUNNER="./scripts/run-agent.sh"
+          export REACHABLE_STAGE_PATHS_PY="./scripts/stage-paths.py"
+          export REACHABLE_CORE_OUTPUTS_PATH="$outputs_file"
+          ./scripts/remediation-core.sh
+          cat "$outputs_file" >> "$GITHUB_ENV"
 
       - name: Final proof scan
         if: ${{ inputs.remediate || inputs.rescan_only }}
