@@ -1,6 +1,7 @@
 # Reachable CI for GitHub
 
-Reusable GitHub Actions integration for Reachable autonomous remediation.
+Reusable GitHub Actions integration for REACHABLE risk exposure reduction and
+reviewable auto-remediation.
 
 This repository is the customer-facing GitHub CI package. Application
 repositories should call the reusable workflow here, or generate that caller
@@ -8,7 +9,8 @@ workflow with the Reachable SDK, instead of copying demo scripts from a testbed
 repository.
 
 The goal is simple: set a small number of variables/secrets, run a workflow, and
-receive DB-backed release evidence plus an optional remediation branch and PR.
+receive structured proof artifacts plus an optional remediation branch and PR
+for human review.
 
 ## Quick Start
 
@@ -26,23 +28,24 @@ receive DB-backed release evidence plus an optional remediation branch and PR.
 
 | Lane | Purpose | Code Changes | Pull Request |
 |------|---------|--------------|--------------|
-| Assess | Scan the target branch and publish DB-backed posture evidence. | No | No |
+| Assess | Scan the target branch and publish structured proof artifacts. | No | No |
 | Patch branch | Create bounded remediation changes and verify the branch. | Yes | Optional |
 | Patch + PR | Create bounded remediation changes, verify, publish proof, and open a review PR. | Yes | Yes |
 | Rescan only | Verify an existing remediation branch without editing it. | No | No |
 
-The pass/fail verdict is based on Reachable `repo.db` evidence. SARIF and other
-exports are compatibility artifacts, not the source of truth.
+The pass/fail verdict is based on REACHABLE's local evidence record. `repo.db`
+is the internal structured store behind that record; SARIF and other exports
+are compatibility artifacts, not the source of truth.
 
 ## Customer Integration Path
 
-If you are integrating autonomous remediation into a GitHub repository, the
+If you are integrating reviewable auto-remediation into a GitHub repository, the
 customer path is:
 
 1. Choose the operating lane.
-   Start with `remediate=true` and `create_pr=true` for a full autonomous
-   remediation PR, or use `remediate=false` for assessment-only evidence while
-   you validate rollout controls.
+   Start with `remediate=true` and `create_pr=true` for a full remediation PR,
+   or use `remediate=false` for read-only evidence while you confirm rollout
+   controls.
 2. Enable the GitHub repository settings in
    [Repository Settings](#repository-settings).
    The important bits are write permissions for `GITHUB_TOKEN`, PR creation by
@@ -60,16 +63,17 @@ customer path is:
    remediation PR look right, add a schedule or call this reusable workflow from
    your release pipeline.
 
-On each autonomous remediation run, the workflow:
+On each auto-remediation run, the workflow:
 
 1. Installs the pinned or latest Reachable wheel.
-2. Scans the target branch and stores the source of truth in `repo.db`.
+2. Scans the target branch and records the evidence in REACHABLE's local
+   evidence store.
 3. Creates a bounded remediation branch.
-4. Builds a DB-backed remediation bundle for the selected signal families.
+4. Builds a remediation bundle for the selected signal families.
 5. Runs the selected coding-agent lane against that branch.
    The Claude lane runs Claude Code non-interactively and feeds the generated
    remediation task on stdin.
-6. Rescans the branch to produce proof from the database, not from stale JSON.
+6. Rescans the branch to produce proof from the current branch state.
 7. Pushes the branch, opens a PR when configured, and uploads sanitized proof
    artifacts.
 
@@ -324,12 +328,14 @@ but pins a few values so the release demo is reproducible.
 
 The workflow publishes sanitized evidence only:
 
-| Artifact | Purpose |
-|----------|---------|
-| Release proof page | Standard `reachable.ci.proof_page` output: branch, commit, scan ID, release blockers, defended items, PR/run links, and expandable threat-vector plus stack-style code/data-flow evidence. |
-| Summary JSON | Machine-readable run summary. |
-| Remediation ledger | Sanitized list of remediation rules and outcomes. |
-| SARIF export | Compatibility upload for GitHub code scanning. Not authoritative. |
+| Name | Path | Produced by | Purpose |
+|------|------|-------------|---------|
+| Baseline SARIF | `.reachable/ci-artifacts/reachable.sarif` | `Baseline scan` | Machine-readable baseline findings for GitHub/security tooling consumers. |
+| Release proof page | `.reachable/ci-artifacts/release-proof/index.html` | `Publish report` | Standard `reachable.ci.proof_page` output with branch, commit, run, PR, release blockers, defended items, and expandable evidence. |
+| Release proof summary | `.reachable/ci-artifacts/release-proof/summary.json` | `Publish report` | Machine-readable data behind the release proof page. |
+| Reachable JSON report | `.reachable/ci-artifacts/reachable-report.json` | `Publish report`, when export succeeds | Structured REACHABLE findings export for downstream review tools. |
+| Reachable text summary | `.reachable/ci-artifacts/reachable-summary.txt` | `Publish report`, when export succeeds | Plain-text summary for quick artifact inspection. |
+| Uploaded artifact bundle | GitHub Actions artifact `reachable-ci-artifacts` containing `.reachable/ci-artifacts/**` | `Upload Reachable artifacts` | Single downloadable bundle for reviewers and auditors. |
 
 The workflow must not publish private remediation prompts, generated rules,
 agent transcripts, raw witnesses, or local databases.
@@ -338,7 +344,7 @@ agent transcripts, raw witnesses, or local databases.
 
 ### Assess Only
 
-Use this when you want a DB-backed posture report without code changes.
+Use this when you want a structured posture report without code changes.
 
 ```yaml
 with:
@@ -389,7 +395,7 @@ Expected result:
 
 - remediation branch is pushed
 - proof scan runs against that branch
-- PR is opened with the DB-backed proof available as artifacts/report
+- PR is opened with structured proof artifacts available for review
 
 ### Verify Existing Branch
 
@@ -425,9 +431,9 @@ Reachable wheel under `reachable.ci`, including:
 - workflow generation
 - settings and secret doctor output
 - cache/install evidence
-- DB-backed proof gates
+- structured proof gates
 - release proof pages
-- expandable DB-backed evidence paths / simple call graph rows
+- expandable structured evidence paths / simple call graph rows
 - export sanitization
 - PR/MR helper contracts
 
@@ -446,7 +452,7 @@ gh pr create \
   --base main \
   --head reachable-remediate-YYYYMMDD-HHMMSS-COMMIT \
   --title "Reachable remediation proof" \
-  --body "DB-backed remediation branch generated by Reachable CI."
+  --body "Reachable remediation branch with structured proof artifacts."
 ```
 
 ## Status

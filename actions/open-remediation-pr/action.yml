@@ -36,6 +36,6 @@ runs:
           --base "${{ inputs.base }}" \
           --head "${{ inputs.branch }}" \
           --title "${{ inputs.title }}" \
-          --body "DB-backed Reachable remediation branch. Review the published proof page and merge when ready.")"
+          --body "Reachable remediation branch with structured proof artifacts. Review the published proof page and merge when ready.")"
         echo "Reachable remediation PR: ${pr_url}"
         echo "pr-url=${pr_url}" >> "$GITHUB_OUTPUT"

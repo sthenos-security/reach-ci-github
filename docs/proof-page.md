@@ -11,8 +11,9 @@ It should answer four questions quickly:
 3. What changed on the remediation branch?
 4. Does the proof scan show zero release blockers, or are any items deferred?
 
-The page should read from Reachable DB evidence or sanitized DB exports. SARIF is
-a compatibility export and must never be treated as the verdict source.
+The page should read from REACHABLE's structured evidence record or sanitized
+evidence exports. SARIF is a compatibility export and must never be treated as
+the verdict source.
 
 Recommended top-level cards:
 
@@ -35,7 +36,7 @@ Detailed rows should include:
 - file location
 - package/fix when applicable
 - short reason for defended findings
-- expandable DB-backed evidence with three parts:
+- expandable structured evidence with three parts:
   - threat vector: entry, sink, exploitability verdict, and release gate
   - data flow evidence stack: entry point, module/function, file, line number,
     route/framework, sink, and Reachable decision badges on each frame
