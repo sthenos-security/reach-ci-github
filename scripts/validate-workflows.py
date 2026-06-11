@@ -139,8 +139,8 @@ def validate_shared_helper_contract() -> None:
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
-        "codex-openai|openai-codex",
-        "claude-anthropic|anthropic-claude",
+        "codex-openai|openai-codex|codex|openai",
+        "claude-anthropic|anthropic-claude|claude|anthropic",
         "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
         "REACHABLE_AGENT_TIMEOUT_SEC",
         "uses: sthenos-security/reach-ci-github/actions/remediation-core@v1",

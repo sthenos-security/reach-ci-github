@@ -20,7 +20,7 @@ on:
         default: ""
       agent_timeout_sec:
         type: number
-        default: 900
+        default: 1800
       prompt_profile:
         type: string
         default: balanced
@@ -124,8 +124,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "${REACHABLE_REMEDIATION_MODE}" in
-            codex-openai|openai-codex)
+          normalize_remediation_mode() {
+            mode="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]')"
+            case "$mode" in
+              codex-openai|openai-codex|codex|openai)
+                printf '%s\n' "codex-openai"
+                ;;
+              claude-anthropic|anthropic-claude|claude|anthropic)
+                printf '%s\n' "claude-anthropic"
+                ;;
+              *)
+                echo "unsupported remediation_mode: $1 (expected canonical codex-openai or claude-anthropic; accepted compatibility aliases: openai-codex, codex, openai, anthropic-claude, claude, anthropic)" >&2
+                return 2
+                ;;
+            esac
+          }
+
+          normalized_mode="$(normalize_remediation_mode "${REACHABLE_REMEDIATION_MODE}")"
+          case "$normalized_mode" in
+            codex-openai)
+              echo "REACHABLE_REMEDIATION_MODE=codex-openai" >> "$GITHUB_ENV"
               echo "REACHABLE_AGENT=codex" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=openai" >> "$GITHUB_ENV"
               if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
@@ -136,7 +154,8 @@ jobs:
                 exit 2
               fi
               ;;
-            claude-anthropic|anthropic-claude)
+            claude-anthropic)
+              echo "REACHABLE_REMEDIATION_MODE=claude-anthropic" >> "$GITHUB_ENV"
               echo "REACHABLE_AGENT=claude" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=claude" >> "$GITHUB_ENV"
               if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
@@ -147,11 +166,8 @@ jobs:
                 exit 2
               fi
               ;;
-            *)
-              echo "unsupported remediation_mode: ${REACHABLE_REMEDIATION_MODE} (expected codex-openai/openai-codex or claude-anthropic/anthropic-claude)" >&2
-              exit 2
-              ;;
           esac
+          echo "Reachable remediation mode resolved: ${normalized_mode}"
 
       - name: Setup Reachable
         uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1

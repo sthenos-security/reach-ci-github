@@ -48,8 +48,9 @@ customer path is:
    The important bits are write permissions for `GITHUB_TOKEN`, PR creation by
    Actions, and permission to call this reusable workflow.
 3. Add one model-provider secret.
-   Use `OPENAI_API_KEY` for `codex-openai` (alias `openai-codex`) or
-   `ANTHROPIC_API_KEY` for `claude-anthropic` (alias `anthropic-claude`).
+   Use `OPENAI_API_KEY` for `codex-openai` (aliases `openai-codex`, `codex`,
+   `openai`) or `ANTHROPIC_API_KEY` for `claude-anthropic` (aliases
+   `anthropic-claude`, `claude`, `anthropic`).
    Optional Reachable enrichment secrets are listed in
    [Secrets And Variables](#secrets-and-variables).
 4. Add the small caller workflow from [Minimal Workflow](#minimal-workflow), or
@@ -87,9 +88,9 @@ Recommended production defaults:
 
 | Setting | Recommended Value | Why |
 |---------|-------------------|-----|
-| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. Accepted aliases are `openai-codex` and `anthropic-claude`. The Codex path pins `gpt-5.4-mini`; the Claude path pins `claude-sonnet-4-5-20250929`. |
+| `remediation_mode` | `codex-openai` | Canonical lanes are `codex-openai` and `claude-anthropic`; compatibility aliases are normalized before use. The Codex path pins `gpt-5.4-mini`; the Claude path pins `claude-sonnet-4-5-20250929`. |
 | `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
-| `agent_timeout_sec` | `900` | Per-batch coding-agent timeout. The timer resets for each remediation batch. |
+| `agent_timeout_sec` | `1800` | Per-batch coding-agent timeout. The timer resets for each remediation batch. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
@@ -224,9 +225,9 @@ caller workflow.
 | `workflow_name` | `Reachable Auto Remediation` | Workflow `name` | Display name in GitHub Actions. |
 | `reusable_workflow` | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Job `uses` | Must include an explicit ref such as `@v1`. |
 | `target_branch` | `main` | `target_branch` dispatch default | Branch to scan or verify. |
-| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` (alias `openai-codex`) requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`; `claude-anthropic` (alias `anthropic-claude`) requires `ANTHROPIC_API_KEY` and defaults to `claude-sonnet-4-5-20250929`. |
+| `remediation_mode` | `codex-openai` | `remediation_mode` | Canonical values are `codex-openai` and `claude-anthropic`; aliases such as `codex`, `openai`, `claude`, and `anthropic` are normalized before use. |
 | `agent_model` | empty | `agent_model` | Optional remediation-model override passed through to the selected coding agent. Leave unset for the pinned defaults. |
-| `agent_timeout_sec` | `900` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. The timer resets on every batch. |
+| `agent_timeout_sec` | `1800` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. The timer resets on every batch. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
 | `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
@@ -245,7 +246,7 @@ caller workflow.
 | Secret | Required When | Purpose |
 |--------|---------------|---------|
 | `OPENAI_API_KEY` | `remediation_mode=codex-openai` or `openai-codex` | Used by Reachable AI analysis and the Codex coding-agent lane. |
-| `ANTHROPIC_API_KEY` | `remediation_mode=claude-anthropic` or `anthropic-claude` | Used by Reachable AI analysis and the Claude Code lane. |
+| `ANTHROPIC_API_KEY` | `remediation_mode=claude-anthropic`, `anthropic-claude`, `claude`, or `anthropic` | Used by Reachable AI analysis and the Claude Code lane. |
 
 Set these in GitHub:
 
@@ -283,7 +284,7 @@ workflow calls this reusable workflow.
 | `remediate` | `true` | Kill switch for code-writing remediation. |
 | `rescan_only` | `false` | Verify an existing branch without editing code. |
 | `remediation_mode` | `codex-openai` | Selects the coding-agent/provider lane. |
-| `agent_timeout_sec` | `900` | Per-batch timeout for the selected coding agent. The timeout resets on every remediation batch. |
+| `agent_timeout_sec` | `1800` | Per-batch timeout for the selected coding agent. The timeout resets on every remediation batch. |
 | `prompt_profile` | `balanced` | Bundling profile passed to Reachable. |
 | `signal_types` | `all` | Signal families to include in the remediation bundle. |
 | `max_batches` | `3` | Maximum serialized remediation loops. The workflow stops early when no release blockers remain. |

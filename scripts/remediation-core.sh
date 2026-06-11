@@ -1,11 +1,39 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-agent_timeout_sec="$(printf '%s' "${REACHABLE_AGENT_TIMEOUT_SEC:-900}" | tr -d '\r\n[:space:]')"
-max_batches="$(printf '%s' "${REACHABLE_MAX_BATCHES:-3}" | tr -d '\r\n[:space:]')"
-rescan_strategy="${REACHABLE_RESCAN_STRATEGY:-each_batch}"
-signal_types="${REACHABLE_SIGNAL_TYPES:-all}"
-profile="${REACHABLE_PROMPT_PROFILE:-balanced}"
+sanitize_token() {
+  local raw_value="${1-}"
+  local default_value="${2:?default value required}"
+  local cleaned
+
+  cleaned="$(printf '%s' "${raw_value:-$default_value}" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]')"
+  case "$cleaned" in
+    \"*\") cleaned="${cleaned#\"}"; cleaned="${cleaned%\"}" ;;
+    \'*\') cleaned="${cleaned#\'}"; cleaned="${cleaned%\'}" ;;
+  esac
+  printf '%s\n' "$cleaned"
+}
+
+sanitize_positive_int() {
+  local raw_value="${1-}"
+  local default_value="${2:?default value required}"
+  local name="${3:?name required}"
+  local cleaned
+
+  cleaned="$(sanitize_token "$raw_value" "$default_value")"
+  if ! printf '%s' "$cleaned" | grep -Eq '^[0-9]+$' || [ "${cleaned:-0}" -lt 1 ]; then
+    echo "${name} was invalid; defaulting to ${default_value}." >&2
+    printf '%s\n' "$default_value"
+    return 0
+  fi
+  printf '%s\n' "$cleaned"
+}
+
+agent_timeout_sec="$(sanitize_positive_int "${REACHABLE_AGENT_TIMEOUT_SEC-}" 1800 REACHABLE_AGENT_TIMEOUT_SEC)"
+max_batches="$(sanitize_positive_int "${REACHABLE_MAX_BATCHES-}" 3 REACHABLE_MAX_BATCHES)"
+rescan_strategy="$(sanitize_token "${REACHABLE_RESCAN_STRATEGY-}" each_batch)"
+signal_types="$(sanitize_token "${REACHABLE_SIGNAL_TYPES-}" all)"
+profile="$(sanitize_token "${REACHABLE_PROMPT_PROFILE-}" balanced)"
 branch="${REACHABLE_REMEDIATION_BRANCH:?REACHABLE_REMEDIATION_BRANCH is required}"
 agent_runner="${REACHABLE_AGENT_RUNNER:-./scripts/run-agent.sh}"
 stage_paths_py="${REACHABLE_STAGE_PATHS_PY:-./scripts/stage-paths.py}"
@@ -13,14 +41,6 @@ outputs_path="${REACHABLE_CORE_OUTPUTS_PATH:-}"
 proof_commit="$(git rev-parse HEAD)"
 remediation_committed="false"
 
-if ! printf '%s' "$agent_timeout_sec" | grep -Eq '^[0-9]+$' || [ "${agent_timeout_sec:-0}" -lt 1 ]; then
-  echo "REACHABLE_AGENT_TIMEOUT_SEC was invalid; defaulting to 900 seconds." >&2
-  agent_timeout_sec="900"
-fi
-if ! printf '%s' "$max_batches" | grep -Eq '^[0-9]+$' || [ "${max_batches:-0}" -lt 1 ]; then
-  echo "REACHABLE_MAX_BATCHES was invalid; defaulting to 3." >&2
-  max_batches="3"
-fi
 case "$rescan_strategy" in
   each_batch|final_only) ;;
   *)
