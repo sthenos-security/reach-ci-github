@@ -13,13 +13,13 @@ outputs_path="${REACHABLE_CORE_OUTPUTS_PATH:-}"
 proof_commit="$(git rev-parse HEAD)"
 remediation_committed="false"
 
-if ! printf '%s' "$agent_timeout_sec" | grep -Eq '^[0-9]+$' || [ "$agent_timeout_sec" -lt 1 ]; then
-  echo "REACHABLE_AGENT_TIMEOUT_SEC must be a positive integer number of seconds." >&2
-  exit 2
+if ! printf '%s' "$agent_timeout_sec" | grep -Eq '^[0-9]+$' || [ "${agent_timeout_sec:-0}" -lt 1 ]; then
+  echo "REACHABLE_AGENT_TIMEOUT_SEC was invalid; defaulting to 900 seconds." >&2
+  agent_timeout_sec="900"
 fi
-if ! printf '%s' "$max_batches" | grep -Eq '^[0-9]+$' || [ "$max_batches" -lt 1 ]; then
-  echo "REACHABLE_MAX_BATCHES must be a positive integer." >&2
-  exit 2
+if ! printf '%s' "$max_batches" | grep -Eq '^[0-9]+$' || [ "${max_batches:-0}" -lt 1 ]; then
+  echo "REACHABLE_MAX_BATCHES was invalid; defaulting to 3." >&2
+  max_batches="3"
 fi
 case "$rescan_strategy" in
   each_batch|final_only) ;;
