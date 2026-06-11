@@ -128,8 +128,13 @@ for batch in $(seq 1 "$max_batches"); do
   echo "Reachable agent timeout for this batch: ${agent_timeout_sec}s"
   rm -rf .reachable/remediation-bundle
 
+  # CI adapters need a deterministic workspace-local private handoff because
+  # the selected coding agent reads prompt.md from the checked-out repository.
+  # reachctl's default CI output stays in user-scoped transient state unless an
+  # orchestrator opts into a path, so keep this explicit and clean the same path.
   reachctl remediate . \
     --context ci \
+    --output-dir .reachable/remediation-bundle \
     --agent "${REACHABLE_AGENT}" \
     --mode branch \
     --branch-name "$branch" \
@@ -144,7 +149,7 @@ for batch in $(seq 1 "$max_batches"); do
   run_with_timeout "$agent_timeout_sec" \
     "$agent_runner" "${REACHABLE_AGENT}" .reachable/remediation-bundle/prompt.md
 
-  reachctl remediate . --cleanup || true
+  reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup || true
   run_project_tests
 
   if [ "$rescan_strategy" = "each_batch" ]; then

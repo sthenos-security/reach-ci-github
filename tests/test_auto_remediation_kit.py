@@ -46,6 +46,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn('if command -v timeout >/dev/null 2>&1; then', REMEDIATION_CORE)
         self.assertIn('subprocess.run(cmd, check=False, timeout=timeout_s).returncode', REMEDIATION_CORE)
         self.assertIn('run_with_timeout "$agent_timeout_sec"', REMEDIATION_CORE)
+        self.assertIn('--output-dir .reachable/remediation-bundle', REMEDIATION_CORE)
+        self.assertIn('reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup', REMEDIATION_CORE)
 
 
 if __name__ == "__main__":
