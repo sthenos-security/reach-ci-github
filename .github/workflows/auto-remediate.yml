@@ -18,6 +18,9 @@ on:
       agent_model:
         type: string
         default: ""
+      agent_timeout_sec:
+        type: number
+        default: 900
       prompt_profile:
         type: string
         default: balanced
@@ -91,6 +94,7 @@ jobs:
       REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
       REACHABLE_REMEDIATION_MODE: ${{ inputs.remediation_mode }}
       REACHABLE_AGENT_MODEL: ${{ inputs.agent_model }}
+      REACHABLE_AGENT_TIMEOUT_SEC: ${{ inputs.agent_timeout_sec }}
       REACHABLE_PROMPT_PROFILE: ${{ inputs.prompt_profile }}
       REACHABLE_SIGNAL_TYPES: ${{ inputs.signal_types }}
       REACHABLE_MAX_BATCHES: ${{ inputs.max_batches }}
@@ -213,8 +217,14 @@ jobs:
         run: |
           set -euo pipefail
           max_batches="${REACHABLE_MAX_BATCHES:-3}"
+          agent_timeout_sec="${REACHABLE_AGENT_TIMEOUT_SEC:-900}"
+          if ! [[ "$agent_timeout_sec" =~ ^[0-9]+$ ]] || [ "$agent_timeout_sec" -lt 1 ]; then
+            echo "agent_timeout_sec must be a positive integer number of seconds." >&2
+            exit 2
+          fi
           for batch in $(seq 1 "$max_batches"); do
             echo "== Reachable remediation batch ${batch}/${max_batches} =="
+            echo "Reachable agent timeout for this batch: ${agent_timeout_sec}s"
             rm -rf .reachable/remediation-bundle
             signal_args=()
             if [ "${REACHABLE_SIGNAL_TYPES}" = "all" ]; then
@@ -238,7 +248,10 @@ jobs:
               break
             fi
             case "${REACHABLE_AGENT}" in
-              codex) codex exec --model "${REACHABLE_AGENT_MODEL}" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md ;;
+              codex)
+                timeout --kill-after=30s "${agent_timeout_sec}s" \
+                  codex exec --model "${REACHABLE_AGENT_MODEL}" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md
+                ;;
               claude)
                 claude_args=()
                 if [ -n "${REACHABLE_AGENT_MODEL:-}" ]; then
@@ -251,7 +264,8 @@ jobs:
                   --output-format stream-json
                   --max-budget-usd "${CLAUDE_MAX_BUDGET_USD:-5}"
                 )
-                claude "${claude_args[@]}" -p "Apply the Reachable remediation task provided on stdin to this repository. Treat stdin as the authoritative instructions, make the requested changes, and stop when the task is complete." < .reachable/remediation-bundle/prompt.md
+                timeout --kill-after=30s "${agent_timeout_sec}s" \
+                  claude "${claude_args[@]}" -p "Apply the Reachable remediation task provided on stdin to this repository. Treat stdin as the authoritative instructions, make the requested changes, and stop when the task is complete." < .reachable/remediation-bundle/prompt.md
                 ;;
             esac
             reachctl remediate . --cleanup || true

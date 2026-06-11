@@ -133,6 +133,8 @@ def validate_shared_helper_contract() -> None:
         "codex-openai|openai-codex",
         "claude-anthropic|anthropic-claude",
         "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
+        "REACHABLE_AGENT_TIMEOUT_SEC",
+        "timeout --kill-after=30s \"${agent_timeout_sec}s\"",
         "codex exec --model \"${REACHABLE_AGENT_MODEL}\" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check",
         "--permission-mode bypassPermissions",
         "--no-session-persistence",
