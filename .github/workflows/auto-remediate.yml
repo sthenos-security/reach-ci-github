@@ -250,22 +250,11 @@ jobs:
             case "${REACHABLE_AGENT}" in
               codex)
                 timeout --kill-after=30s "${agent_timeout_sec}s" \
-                  codex exec --model "${REACHABLE_AGENT_MODEL}" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check < .reachable/remediation-bundle/prompt.md
+                  ./scripts/run-agent.sh codex .reachable/remediation-bundle/prompt.md
                 ;;
               claude)
-                claude_args=()
-                if [ -n "${REACHABLE_AGENT_MODEL:-}" ]; then
-                  claude_args+=(--model "${REACHABLE_AGENT_MODEL}")
-                fi
-                claude_args+=(
-                  --permission-mode bypassPermissions
-                  --no-session-persistence
-                  --verbose
-                  --output-format stream-json
-                  --max-budget-usd "${CLAUDE_MAX_BUDGET_USD:-5}"
-                )
                 timeout --kill-after=30s "${agent_timeout_sec}s" \
-                  claude "${claude_args[@]}" -p "Apply the Reachable remediation task provided on stdin to this repository. Treat stdin as the authoritative instructions, make the requested changes, and stop when the task is complete." < .reachable/remediation-bundle/prompt.md
+                  ./scripts/run-agent.sh claude .reachable/remediation-bundle/prompt.md
                 ;;
             esac
             reachctl remediate . --cleanup || true
@@ -306,33 +295,7 @@ jobs:
           stage_list="${RUNNER_TEMP:-/tmp}/reachable-stage-paths"
           candidate_list="${RUNNER_TEMP:-/tmp}/reachable-candidate-paths"
           git ls-files --modified --others --exclude-standard -z > "$candidate_list"
-          python3 - "$candidate_list" "$stage_list" <<'PY'
-          import sys
-
-          candidate_list = sys.argv[1]
-          stage_list = sys.argv[2]
-          with open(candidate_list, "rb") as fh:
-              raw = fh.read().split(b"\0")
-          keep = []
-          for item in raw:
-              if not item:
-                  continue
-              path = item.decode("utf-8", "surrogateescape")
-              if (
-                  path == ".reachable"
-                  or path.startswith(".reachable/")
-                  or path.endswith(".sarif")
-                  or path.rsplit("/", 1)[-1].startswith("reachable-")
-              ):
-                  continue
-              keep.append(path)
-
-          for path in keep:
-              print(path, file=sys.stderr)
-          with open(stage_list, "wb") as fh:
-              if keep:
-                  fh.write(b"\0".join(p.encode("utf-8", "surrogateescape") for p in sorted(keep)) + b"\0")
-          PY
+          python3 ./scripts/stage-paths.py "$candidate_list" "$stage_list"
           if [ ! -s "$stage_list" ]; then
             echo "No remediation changes to commit."
             echo "REACHABLE_PROOF_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
