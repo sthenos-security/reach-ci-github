@@ -130,6 +130,9 @@ def validate_shared_helper_contract() -> None:
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
+        "codex-openai|openai-codex",
+        "claude-anthropic|anthropic-claude",
+        "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
         "codex exec --model \"${REACHABLE_AGENT_MODEL}\" --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check",
         "--permission-mode bypassPermissions",
         "--no-session-persistence",

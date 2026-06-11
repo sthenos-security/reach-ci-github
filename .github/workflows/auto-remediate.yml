@@ -121,26 +121,30 @@ jobs:
         run: |
           set -euo pipefail
           case "${REACHABLE_REMEDIATION_MODE}" in
-            codex-openai)
+            codex-openai|openai-codex)
               echo "REACHABLE_AGENT=codex" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=openai" >> "$GITHUB_ENV"
-              echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"
+              if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
+                echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"
+              fi
               if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
                 echo "remediation_mode=codex-openai requires OPENAI_API_KEY." >&2
                 exit 2
               fi
               ;;
-            claude-anthropic)
+            claude-anthropic|anthropic-claude)
               echo "REACHABLE_AGENT=claude" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=claude" >> "$GITHUB_ENV"
-              echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"
+              if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
+                echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"
+              fi
               if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
                 echo "remediation_mode=claude-anthropic requires ANTHROPIC_API_KEY." >&2
                 exit 2
               fi
               ;;
             *)
-              echo "unsupported remediation_mode: ${REACHABLE_REMEDIATION_MODE}" >&2
+              echo "unsupported remediation_mode: ${REACHABLE_REMEDIATION_MODE} (expected codex-openai/openai-codex or claude-anthropic/anthropic-claude)" >&2
               exit 2
               ;;
           esac

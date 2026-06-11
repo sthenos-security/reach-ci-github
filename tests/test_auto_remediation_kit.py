@@ -10,6 +10,13 @@ VALIDATOR = (ROOT / "scripts" / "validate-workflows.py").read_text(encoding="utf
 
 
 class WorkflowContractTests(unittest.TestCase):
+    def test_mode_aliases_and_model_override_are_supported(self) -> None:
+        self.assertIn("codex-openai|openai-codex", WORKFLOW)
+        self.assertIn("claude-anthropic|anthropic-claude", WORKFLOW)
+        self.assertIn('if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then', WORKFLOW)
+        self.assertIn('echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"', WORKFLOW)
+        self.assertIn('echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"', WORKFLOW)
+
     def test_publish_report_skips_when_reachable_setup_never_happened(self) -> None:
         self.assertIn('if ! command -v reachctl >/dev/null 2>&1; then', WORKFLOW)
         self.assertIn('echo "Reachable CLI is unavailable; skipping report publication."', WORKFLOW)
@@ -30,6 +37,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("Reachable Python package is unavailable; skipping report publication.", VALIDATOR)
         self.assertIn("Apply the Reachable remediation task provided on stdin", VALIDATOR)
         self.assertIn("claude remediation lane must pass an explicit non-interactive prompt with -p", VALIDATOR)
+        self.assertIn("claude-anthropic|anthropic-claude", VALIDATOR)
 
 
 if __name__ == "__main__":

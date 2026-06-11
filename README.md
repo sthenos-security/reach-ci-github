@@ -48,8 +48,9 @@ customer path is:
    The important bits are write permissions for `GITHUB_TOKEN`, PR creation by
    Actions, and permission to call this reusable workflow.
 3. Add one model-provider secret.
-   Use `OPENAI_API_KEY` for `codex-openai` or `ANTHROPIC_API_KEY` for
-   `claude-anthropic`. Optional Reachable enrichment secrets are listed in
+   Use `OPENAI_API_KEY` for `codex-openai` (alias `openai-codex`) or
+   `ANTHROPIC_API_KEY` for `claude-anthropic` (alias `anthropic-claude`).
+   Optional Reachable enrichment secrets are listed in
    [Secrets And Variables](#secrets-and-variables).
 4. Add the small caller workflow from [Minimal Workflow](#minimal-workflow), or
    generate it from the SDK in [SDK Usage](#sdk-usage).
@@ -86,7 +87,7 @@ Recommended production defaults:
 
 | Setting | Recommended Value | Why |
 |---------|-------------------|-----|
-| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. The Codex path pins `gpt-5.4-mini`; the Claude path pins `claude-sonnet-4-5-20250929`. |
+| `remediation_mode` | `codex-openai` | Default autonomous coding-agent lane. Accepted aliases are `openai-codex` and `anthropic-claude`. The Codex path pins `gpt-5.4-mini`; the Claude path pins `claude-sonnet-4-5-20250929`. |
 | `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
@@ -184,8 +185,8 @@ Then configure one model-provider secret:
 
 | Mode | Required Secret | Agent Lane |
 |------|-----------------|------------|
-| `codex-openai` | `OPENAI_API_KEY` | Codex with OpenAI |
-| `claude-anthropic` | `ANTHROPIC_API_KEY` | Claude Code with Anthropic |
+| `codex-openai` or `openai-codex` | `OPENAI_API_KEY` | Codex with OpenAI |
+| `claude-anthropic` or `anthropic-claude` | `ANTHROPIC_API_KEY` | Claude Code with Anthropic |
 
 ## Repository Settings
 
@@ -222,7 +223,7 @@ caller workflow.
 | `workflow_name` | `Reachable Auto Remediation` | Workflow `name` | Display name in GitHub Actions. |
 | `reusable_workflow` | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Job `uses` | Must include an explicit ref such as `@v1`. |
 | `target_branch` | `main` | `target_branch` dispatch default | Branch to scan or verify. |
-| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`; `claude-anthropic` requires `ANTHROPIC_API_KEY` and defaults to `claude-sonnet-4-5-20250929`. |
+| `remediation_mode` | `codex-openai` | `remediation_mode` | `codex-openai` (alias `openai-codex`) requires `OPENAI_API_KEY` and defaults to `gpt-5.4-mini`; `claude-anthropic` (alias `anthropic-claude`) requires `ANTHROPIC_API_KEY` and defaults to `claude-sonnet-4-5-20250929`. |
 | `agent_model` | empty | `agent_model` | Optional remediation-model override passed through to the selected coding agent. Leave unset for the pinned defaults. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
@@ -241,8 +242,8 @@ caller workflow.
 
 | Secret | Required When | Purpose |
 |--------|---------------|---------|
-| `OPENAI_API_KEY` | `remediation_mode=codex-openai` | Used by Reachable AI analysis and the Codex coding-agent lane. |
-| `ANTHROPIC_API_KEY` | `remediation_mode=claude-anthropic` | Used by Reachable AI analysis and the Claude Code lane. |
+| `OPENAI_API_KEY` | `remediation_mode=codex-openai` or `openai-codex` | Used by Reachable AI analysis and the Codex coding-agent lane. |
+| `ANTHROPIC_API_KEY` | `remediation_mode=claude-anthropic` or `anthropic-claude` | Used by Reachable AI analysis and the Claude Code lane. |
 
 Set these in GitHub:
 
