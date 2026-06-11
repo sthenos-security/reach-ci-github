@@ -213,15 +213,7 @@ jobs:
 
       - name: Remediate and verify
         if: ${{ inputs.remediate && !inputs.rescan_only }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          outputs_file="${RUNNER_TEMP:-/tmp}/reachable-core-outputs"
-          export REACHABLE_AGENT_RUNNER="./scripts/run-agent.sh"
-          export REACHABLE_STAGE_PATHS_PY="./scripts/stage-paths.py"
-          export REACHABLE_CORE_OUTPUTS_PATH="$outputs_file"
-          ./scripts/remediation-core.sh
-          cat "$outputs_file" >> "$GITHUB_ENV"
+        uses: sthenos-security/reach-ci-github/actions/remediation-core@v1
 
       - name: Final proof scan
         if: ${{ inputs.remediate || inputs.rescan_only }}

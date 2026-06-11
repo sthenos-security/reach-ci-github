@@ -133,6 +133,7 @@ def validate_shared_helper_contract() -> None:
             ROOT / "scripts" / "stage-paths.py",
         )
     )
+    remediation_action = (ROOT / "actions" / "remediation-core" / "action.yml").read_text(encoding="utf-8")
     if "reach-testbed" in workflow or "reach-testbed" in action_text:
         raise AssertionError("workflow/actions must not wrap testbed-specific scripts")
     if "python -m reachable.ci.proof_page" not in workflow:
@@ -142,10 +143,7 @@ def validate_shared_helper_contract() -> None:
         "claude-anthropic|anthropic-claude",
         "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
         "REACHABLE_AGENT_TIMEOUT_SEC",
-        "export REACHABLE_AGENT_RUNNER=\"./scripts/run-agent.sh\"",
-        "export REACHABLE_STAGE_PATHS_PY=\"./scripts/stage-paths.py\"",
-        "export REACHABLE_CORE_OUTPUTS_PATH=\"$outputs_file\"",
-        "./scripts/remediation-core.sh",
+        "uses: sthenos-security/reach-ci-github/actions/remediation-core@v1",
         "Reachable Python package is unavailable; skipping report publication.",
         "--pull-request-url",
         ".reachable/ci-artifacts/release-proof",
@@ -155,6 +153,12 @@ def validate_shared_helper_contract() -> None:
         if expected not in workflow:
             raise AssertionError(f"workflow is missing standardized report output: {expected}")
     for expected in (
+        "chmod +x \"$toolkit_root/scripts/run-agent.sh\" \"$toolkit_root/scripts/remediation-core.sh\"",
+        "export REACHABLE_AGENT_RUNNER=\"$toolkit_root/scripts/run-agent.sh\"",
+        "export REACHABLE_STAGE_PATHS_PY=\"$toolkit_root/scripts/stage-paths.py\"",
+        "export REACHABLE_CORE_OUTPUTS_PATH=\"$outputs_file\"",
+        "\"$toolkit_root/scripts/remediation-core.sh\"",
+        "cat \"$outputs_file\" >> \"$GITHUB_ENV\"",
         "reachctl remediate .",
         "--context ci",
         "--mode branch",
@@ -171,7 +175,7 @@ def validate_shared_helper_contract() -> None:
         "Apply the Reachable remediation task provided on stdin",
         "name.startswith(\"reachable-\")",
     ):
-        if expected not in helper_text:
+        if expected not in helper_text and expected not in remediation_action:
             raise AssertionError(f"helper contract missing: {expected}")
     if workflow.find("Push remediation branch") > workflow.find("Publish report"):
         raise AssertionError("remediation branch must be committed before proof page publication")

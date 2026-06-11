@@ -1,0 +1,17 @@
+name: Reachable Remediation Core
+description: Run the shared Reachable remediation core and export workflow env outputs.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        toolkit_root="${{ github.action_path }}/../.."
+        chmod +x "$toolkit_root/scripts/run-agent.sh" "$toolkit_root/scripts/remediation-core.sh"
+        outputs_file="${RUNNER_TEMP:-/tmp}/reachable-core-outputs"
+        export REACHABLE_AGENT_RUNNER="$toolkit_root/scripts/run-agent.sh"
+        export REACHABLE_STAGE_PATHS_PY="$toolkit_root/scripts/stage-paths.py"
+        export REACHABLE_CORE_OUTPUTS_PATH="$outputs_file"
+        "$toolkit_root/scripts/remediation-core.sh"
+        cat "$outputs_file" >> "$GITHUB_ENV"
