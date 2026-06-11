@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github" / "workflows" / "auto-remediate.yml").read_text(encoding="utf-8")
 VALIDATOR = (ROOT / "scripts" / "validate-workflows.py").read_text(encoding="utf-8")
 RUN_AGENT = (ROOT / "scripts" / "run-agent.sh").read_text(encoding="utf-8")
+REMEDIATION_CORE = (ROOT / "scripts" / "remediation-core.sh").read_text(encoding="utf-8")
 
 
 class WorkflowContractTests(unittest.TestCase):
@@ -38,6 +39,13 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("Reachable Python package is unavailable; skipping report publication.", VALIDATOR)
         self.assertIn("Apply the Reachable remediation task provided on stdin", VALIDATOR)
         self.assertIn("claude-anthropic|anthropic-claude|claude|anthropic", VALIDATOR)
+        self.assertIn('run_with_timeout \\"$agent_timeout_sec\\"', VALIDATOR)
+
+    def test_portable_timeout_wrapper_is_embedded_in_remediation_core(self) -> None:
+        self.assertIn('run_with_timeout() {', REMEDIATION_CORE)
+        self.assertIn('if command -v timeout >/dev/null 2>&1; then', REMEDIATION_CORE)
+        self.assertIn('subprocess.run(cmd, check=False, timeout=timeout_s).returncode', REMEDIATION_CORE)
+        self.assertIn('run_with_timeout "$agent_timeout_sec"', REMEDIATION_CORE)
 
 
 if __name__ == "__main__":

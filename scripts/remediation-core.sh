@@ -29,6 +29,29 @@ sanitize_positive_int() {
   printf '%s\n' "$cleaned"
 }
 
+run_with_timeout() {
+  local timeout_sec="${1:?timeout seconds required}"
+  shift
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --kill-after=30s "${timeout_sec}s" "$@"
+    return $?
+  fi
+
+  python3 - "$timeout_sec" "$@" <<'PY'
+import subprocess
+import sys
+
+timeout_s = int(sys.argv[1])
+cmd = sys.argv[2:]
+try:
+    raise SystemExit(subprocess.run(cmd, check=False, timeout=timeout_s).returncode)
+except subprocess.TimeoutExpired:
+    print(f"command timed out after {timeout_s}s: {' '.join(cmd)}", file=sys.stderr)
+    raise SystemExit(124)
+PY
+}
+
 agent_timeout_sec="$(sanitize_positive_int "${REACHABLE_AGENT_TIMEOUT_SEC-}" 1800 REACHABLE_AGENT_TIMEOUT_SEC)"
 max_batches="$(sanitize_positive_int "${REACHABLE_MAX_BATCHES-}" 3 REACHABLE_MAX_BATCHES)"
 rescan_strategy="$(sanitize_token "${REACHABLE_RESCAN_STRATEGY-}" each_batch)"
@@ -118,7 +141,7 @@ for batch in $(seq 1 "$max_batches"); do
     break
   fi
 
-  timeout --kill-after=30s "${agent_timeout_sec}s" \
+  run_with_timeout "$agent_timeout_sec" \
     "$agent_runner" "${REACHABLE_AGENT}" .reachable/remediation-bundle/prompt.md
 
   reachctl remediate . --cleanup || true
