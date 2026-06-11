@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-agent_timeout_sec="${REACHABLE_AGENT_TIMEOUT_SEC:-900}"
-max_batches="${REACHABLE_MAX_BATCHES:-3}"
+agent_timeout_sec="$(printf '%s' "${REACHABLE_AGENT_TIMEOUT_SEC:-900}" | tr -d '\r\n[:space:]')"
+max_batches="$(printf '%s' "${REACHABLE_MAX_BATCHES:-3}" | tr -d '\r\n[:space:]')"
 rescan_strategy="${REACHABLE_RESCAN_STRATEGY:-each_batch}"
 signal_types="${REACHABLE_SIGNAL_TYPES:-all}"
 profile="${REACHABLE_PROMPT_PROFILE:-balanced}"
@@ -13,11 +13,11 @@ outputs_path="${REACHABLE_CORE_OUTPUTS_PATH:-}"
 proof_commit="$(git rev-parse HEAD)"
 remediation_committed="false"
 
-if ! [[ "$agent_timeout_sec" =~ ^[0-9]+$ ]] || [ "$agent_timeout_sec" -lt 1 ]; then
+if ! printf '%s' "$agent_timeout_sec" | grep -Eq '^[0-9]+$' || [ "$agent_timeout_sec" -lt 1 ]; then
   echo "REACHABLE_AGENT_TIMEOUT_SEC must be a positive integer number of seconds." >&2
   exit 2
 fi
-if ! [[ "$max_batches" =~ ^[0-9]+$ ]] || [ "$max_batches" -lt 1 ]; then
+if ! printf '%s' "$max_batches" | grep -Eq '^[0-9]+$' || [ "$max_batches" -lt 1 ]; then
   echo "REACHABLE_MAX_BATCHES must be a positive integer." >&2
   exit 2
 fi
