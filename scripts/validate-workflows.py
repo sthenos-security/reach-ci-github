@@ -136,6 +136,18 @@ def validate_shared_helper_contract() -> None:
     remediation_action = (ROOT / "actions" / "remediation-core" / "action.yml").read_text(encoding="utf-8")
     if "reach-testbed" in workflow or "reach-testbed" in action_text:
         raise AssertionError("workflow/actions must not wrap testbed-specific scripts")
+    combined_text = "\n".join((workflow, action_text, helper_text, remediation_action))
+    for forbidden in (
+        "REACHABLE_RUN_PROJECT_TESTS",
+        "REACHABLE_TEST_PRESET",
+        "REACHABLE_PROJECT_TEST_COMMAND",
+        "run_project_tests",
+        "test_preset",
+        "project_test_command",
+        "bash -lc",
+    ):
+        if forbidden in combined_text:
+            raise AssertionError(f"project-test execution surface must not be exposed: {forbidden}")
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (

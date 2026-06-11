@@ -83,37 +83,6 @@ else
   done
 fi
 
-run_project_tests() {
-  if [ "${REACHABLE_RUN_PROJECT_TESTS:-false}" != "true" ]; then
-    return 0
-  fi
-  if [ -n "${REACHABLE_PROJECT_TEST_COMMAND:-}" ]; then
-    bash -lc "$REACHABLE_PROJECT_TEST_COMMAND"
-    return 0
-  fi
-  case "${REACHABLE_TEST_PRESET:-none}" in
-    none) echo "Project tests disabled: test_preset=none." ;;
-    go) go test ./... ;;
-    python-pytest) python -m pytest ;;
-    python-unittest) python -m unittest ;;
-    maven) mvn test ;;
-    gradle) gradle test ;;
-    npm) npm test ;;
-    pnpm) pnpm test ;;
-    yarn) yarn test ;;
-    rust) cargo test ;;
-    dotnet) dotnet test ;;
-    ruby-rspec) bundle exec rspec ;;
-    phpunit) vendor/bin/phpunit ;;
-    swift) xcodebuild test ;;
-    elixir) mix test ;;
-    *)
-      echo "Unsupported test configuration. Set REACHABLE_PROJECT_TEST_COMMAND or a supported REACHABLE_TEST_PRESET." >&2
-      exit 2
-      ;;
-  esac
-}
-
 write_outputs() {
   if [ -n "$outputs_path" ]; then
     {
@@ -150,7 +119,6 @@ for batch in $(seq 1 "$max_batches"); do
     "$agent_runner" "${REACHABLE_AGENT}" .reachable/remediation-bundle/prompt.md
 
   reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup || true
-  run_project_tests
 
   if [ "$rescan_strategy" = "each_batch" ]; then
     reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"

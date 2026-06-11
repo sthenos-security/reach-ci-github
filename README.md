@@ -55,12 +55,7 @@ customer path is:
    [Secrets And Variables](#secrets-and-variables).
 4. Add the small caller workflow from [Minimal Workflow](#minimal-workflow), or
    generate it from the SDK in [SDK Usage](#sdk-usage).
-5. Pick the test behavior.
-   If the repository has a normal stack, set `run_project_tests=true` and choose
-   an allowlisted `test_preset` such as `go`, `python-pytest`, or `npm`. For
-   monorepos or unusual test topology, leave Reachable project tests disabled
-   and rely on the repository's existing CI/branch protection.
-6. Run it manually first.
+5. Run it manually first.
    Use `workflow_dispatch` on the default branch. After the proof artifacts and
    remediation PR look right, add a schedule or call this reusable workflow from
    your release pipeline.
@@ -74,15 +69,15 @@ On each autonomous remediation run, the workflow:
 5. Runs the selected coding-agent lane against that branch.
    The Claude lane runs Claude Code non-interactively and feeds the generated
    remediation task on stdin.
-6. Runs the selected project test preset when enabled.
-7. Rescans the branch to produce proof from the database, not from stale JSON.
-8. Pushes the branch, opens a PR when configured, and uploads sanitized proof
+6. Rescans the branch to produce proof from the database, not from stale JSON.
+7. Pushes the branch, opens a PR when configured, and uploads sanitized proof
    artifacts.
 
 The review object for the customer is the remediation PR plus the Reachable
-proof artifacts. Review the code diff, project-test result, release-blocker
-count, and proof page before merging. The reusable workflow intentionally hides
-private prompts, raw databases, raw witnesses, and agent transcripts.
+proof artifacts. Review the code diff, release-blocker count, proof page, and
+the repository's normal CI result before merging. The reusable workflow
+intentionally hides private prompts, raw databases, raw witnesses, and agent
+transcripts.
 
 Recommended production defaults:
 
@@ -96,8 +91,6 @@ Recommended production defaults:
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
 | `publish_report` | `true` | Gives reviewers a stable proof artifact when Reachable setup succeeded; otherwise the workflow skips report rendering instead of failing late. |
 | `fresh_scan` | `false` | Faster normal CI; use `true` for release smoke tests. |
-| `run_project_tests` | repository-specific | Enable an allowlisted preset when it matches the repo; otherwise rely on existing CI. |
-
 The `reach-testbed-go` demo follows the same customer path, but pins the beta
 wheel, uses `fresh_scan=true`, and uses `max_batches=1` so the release smoke can
 prove install, scan, remediation handoff, branch push, proof scan, and PR wiring
@@ -121,29 +114,16 @@ write_github_workflow(
         max_batches=3,
         create_pr=True,
         publish_report=True,
-        run_project_tests=False,
-        test_preset="none",
     ),
 )
 ```
 
-For a simple Go repository:
-
-```python
-write_github_workflow(
-    ".github/workflows/reachable-remediation.yml",
-    GitHubAutoRemediationConfig(
-        remediation_mode="codex-openai",
-        max_batches=3,
-        create_pr=True,
-        run_project_tests=True,
-        test_preset="go",
-    ),
-)
-```
-
-The SDK deliberately does not accept arbitrary shell test commands. Use one of
-the allowlisted presets or keep custom test orchestration in your own CI jobs.
+The SDK deliberately does not accept project-test commands. The remediation
+prompt asks the selected coding agent to run appropriate lint/build/test checks
+when the repository exposes them, while the application repository's own CI and
+branch protection remain the enforcement point. Reachable release harnesses may
+run language-specific checks such as `go test ./...` against generated demo
+branches as separate proof, outside this reusable workflow.
 
 ## Minimal Workflow
 
@@ -175,8 +155,6 @@ jobs:
       max_batches: 3
       rescan_strategy: each_batch
       create_pr: true
-      run_project_tests: false
-      test_preset: none
     secrets: inherit
 ```
 
@@ -236,9 +214,6 @@ caller workflow.
 | `publish_report` | `true` | `publish_report` | Publishes sanitized proof artifacts. If Reachable never finished setup, the workflow skips report rendering instead of failing during cleanup. |
 | `require_ai` | `true` | `require_ai` | Fails early when the selected provider key is missing. |
 | `fresh_scan` | `false` | `fresh_scan` | Deletes `~/.reachable` before install/scan when true. |
-| `run_project_tests` | `false` | `run_project_tests` | Runs only allowlisted presets. |
-| `test_preset` | `none` | `test_preset` | See [Common Test Presets](#common-test-presets). |
-| `project_test_command` | empty | none | Custom shell commands are rejected; use an allowlisted preset or downstream CI. |
 | `schedule_cron` | empty | `on.schedule` | Optional cron trigger in the generated caller workflow. |
 
 ### Required Provider Secret
@@ -294,8 +269,6 @@ workflow calls this reusable workflow.
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
-| `run_project_tests` | `false` | Run an allowlisted test preset after agent edits. Disabled by default because Reachable cannot know a customer's test layout. |
-| `test_preset` | `none` | Optional preset: `go`, `python-pytest`, `python-unittest`, `maven`, `gradle`, `npm`, `pnpm`, `yarn`, `rust`, `dotnet`, `ruby-rspec`, `phpunit`, `swift`, or `elixir`. |
 | `reachable_version` | empty | Pin a Reachable release version. Empty uses the installer default/latest. |
 | `reachable_dist_repo` | `sthenos-security/reach-dist` | Distribution repository containing `install.sh`. |
 
@@ -322,8 +295,6 @@ of setting these directly.
 | `REACHABLE_PUBLISH_REPORT` | `publish_report` | Controls proof artifact publication. |
 | `REACHABLE_REQUIRE_AI` | `require_ai` | Credential preflight behavior. |
 | `REACHABLE_FRESH_SCAN` | `fresh_scan` | Cache deletion behavior. |
-| `REACHABLE_RUN_PROJECT_TESTS` | `run_project_tests` | Enables test preset execution. |
-| `REACHABLE_TEST_PRESET` | `test_preset` | Chooses the project test command. |
 | `REACHABLE_AGENT` | resolved from `remediation_mode` | `codex` or `claude`. |
 | `REACHABLE_LLM_PROVIDER` | resolved from `remediation_mode` | `openai` or `claude` for Reachable scan AI. |
 | `REACHABLE_REMEDIATION_BRANCH` | generated by workflow | Branch name for agent edits and proof scan. |
@@ -349,36 +320,6 @@ but pins a few values so the release demo is reproducible.
 | `max_batches` | `1` for beta smoke, higher for full demos | Fast proof of the CI path; increase only when proving multi-batch remediation. |
 | `rescan_strategy` | `each_batch` | Proves the branch after every batch. |
 | `fresh_scan` | `true` for beta smoke | Avoids cache hiding release/install regressions. |
-| `run_project_tests` | `true` | Runs the Go preset after agent edits. |
-| `test_preset` | `go` | Runs `go test ./...`. |
-
-### Common Test Presets
-
-| Preset | Command |
-|--------|---------|
-| `go` | `go test ./...` |
-| `python-pytest` | `python -m pytest` |
-| `python-unittest` | `python -m unittest` |
-| `maven` | `mvn test` |
-| `gradle` | `gradle test` |
-| `npm` | `npm test` |
-| `pnpm` | `pnpm test` |
-| `yarn` | `yarn test` |
-| `rust` | `cargo test` |
-| `dotnet` | `dotnet test` |
-| `ruby-rspec` | `bundle exec rspec` |
-| `phpunit` | `vendor/bin/phpunit` |
-| `swift` | `xcodebuild test` |
-| `elixir` | `mix test` |
-
-Reachable cannot know where a customer's tests live in a monorepo. For complex
-repositories, leave `run_project_tests=false` and rely on existing branch
-protection or downstream CI jobs to validate the remediation branch.
-
-Reachable does not accept arbitrary test commands in this reusable workflow.
-Customers with custom test topology should keep those commands in their own CI
-jobs and let branch protection decide whether the remediation PR can merge.
-
 ## Published Evidence
 
 The workflow publishes sanitized evidence only:
@@ -474,8 +415,7 @@ Expected result:
 | `remediation_mode=codex-openai requires OPENAI_API_KEY` | Missing provider secret. | Add `OPENAI_API_KEY` to repository or organization Actions secrets. |
 | PR branch pushed but no PR opened | GitHub Actions cannot create PRs. | Enable "Allow GitHub Actions to create and approve pull requests" and `pull-requests: write`. |
 | Proof page reports blockers after remediation | The agent fixed only part of the queue or a finding needs manual review. | Review the branch and proof summary; rerun with more batches only if the remaining item is safe to automate. |
-| Project tests did not run | `run_project_tests=false` or `test_preset=none`. | Select an allowlisted preset, or rely on the repository's existing CI. |
-| Custom test command needed | Monorepo/project-specific test layout. | Keep that command in the application's own CI, not inside this reusable security workflow. |
+| Project tests did not run inside Reachable | The reusable workflow does not execute project test commands. | Use the remediation prompt, local release harnesses, and the application's normal CI/branch protection for language-specific validation. |
 
 ## SDK Boundary
 

@@ -48,12 +48,6 @@ on:
       fresh_scan:
         type: boolean
         default: false
-      run_project_tests:
-        type: boolean
-        default: false
-      test_preset:
-        type: string
-        default: none
       reachable_version:
         type: string
         default: ""
@@ -104,8 +98,6 @@ jobs:
       REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
       REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
       REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
-      REACHABLE_RUN_PROJECT_TESTS: ${{ inputs.run_project_tests }}
-      REACHABLE_TEST_PRESET: ${{ inputs.test_preset }}
       REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
       REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
       MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
