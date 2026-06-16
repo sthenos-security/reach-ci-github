@@ -151,14 +151,16 @@ def validate_shared_helper_contract() -> None:
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
-        "codex-openai|openai-codex|codex|openai",
-        "claude-anthropic|anthropic-claude|claude|anthropic",
+        "normalized_mode=\"$(normalize_choice ai_mode \"${REACHABLE_AI_MODE}\" openai-codex openai-gpt anthropic-claude)\"",
+        "ai_mode=openai-gpt is scan-only",
+        "REACHABLE_PROOF_FAIL_ON",
         "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
         "REACHABLE_AGENT_TIMEOUT_SEC",
         "uses: sthenos-security/reach-ci-github/actions/remediation-core@v1",
         "Reachable Python package is unavailable; skipping report publication.",
         "--pull-request-url",
         ".reachable/ci-artifacts/release-proof",
+        ".reachable/ci-artifacts/reachable-after-final.sarif",
         ".reachable/ci-artifacts/reachable-report.json",
         ".reachable/ci-artifacts/reachable-summary.txt",
     ):
@@ -197,6 +199,22 @@ def validate_shared_helper_contract() -> None:
         raise AssertionError("remediation branch must be committed before proof page publication")
     if workflow.find("Open remediation PR") > workflow.find("Publish report"):
         raise AssertionError("PR URL must be available before proof page publication")
+    pr_action = (ROOT / "actions" / "open-remediation-pr" / "action.yml").read_text(encoding="utf-8")
+    for expected in (
+        "pr-created=false",
+        "GitHub rejected automatic PR creation",
+        "open a PR manually",
+    ):
+        if expected not in pr_action:
+            raise AssertionError(f"PR action must expose manual fallback behavior: {expected}")
+    setup_action = (ROOT / "actions" / "setup-reachable" / "action.yml").read_text(encoding="utf-8")
+    for expected in (
+        "for attempt in 1 2 3",
+        "Reachable installer failed after",
+        "Reachable installer attempt",
+    ):
+        if expected not in setup_action:
+            raise AssertionError(f"setup action must retry installer failures: {expected}")
     print("shared helper/status page contract ok")
 
 

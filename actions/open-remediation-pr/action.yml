@@ -18,6 +18,9 @@ outputs:
   pr-url:
     description: URL of the created pull request.
     value: ${{ steps.open-pr.outputs.pr-url }}
+  pr-created:
+    description: Whether the pull request was opened automatically.
+    value: ${{ steps.open-pr.outputs.pr-created }}
 
 runs:
   using: composite
@@ -29,13 +32,26 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
+        echo "pr-created=false" >> "$GITHUB_OUTPUT"
         echo "Opening Reachable remediation PR:"
         echo "  base: ${{ inputs.base }}"
         echo "  head: ${{ inputs.branch }}"
-        pr_url="$(gh pr create \
+        set +e
+        pr_output="$(gh pr create \
           --base "${{ inputs.base }}" \
           --head "${{ inputs.branch }}" \
           --title "${{ inputs.title }}" \
-          --body "Reachable remediation branch with structured proof artifacts. Review the published proof page and merge when ready.")"
+          --body "Reachable remediation branch with structured proof artifacts. Review the published proof page and merge when ready." 2>&1)"
+        pr_status="$?"
+        set -e
+        if [ "$pr_status" -ne 0 ]; then
+          echo "::warning title=Reachable PR not opened::GitHub rejected automatic PR creation. The remediation branch was pushed; open a PR manually from '${{ inputs.branch }}' into '${{ inputs.base }}'."
+          printf '%s\n' "$pr_output"
+          echo "pr-url=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        printf '%s\n' "$pr_output"
+        pr_url="$(printf '%s\n' "$pr_output" | awk '/^https?:\\/\\// {print; exit}')"
         echo "Reachable remediation PR: ${pr_url}"
         echo "pr-url=${pr_url}" >> "$GITHUB_OUTPUT"
+        echo "pr-created=true" >> "$GITHUB_OUTPUT"

@@ -47,8 +47,17 @@ runs:
         if [ -n "${{ inputs.version }}" ]; then
           install_args+=(--version "${{ inputs.version }}")
         fi
-        curl -fsSL "$installer_url" -o "$install_script"
-        bash "$install_script" "${install_args[@]}"
+        for attempt in 1 2 3; do
+          if curl -fsSL "$installer_url" -o "$install_script" && bash "$install_script" "${install_args[@]}"; then
+            break
+          fi
+          if [ "$attempt" -eq 3 ]; then
+            echo "Reachable installer failed after ${attempt} attempts." >&2
+            exit 2
+          fi
+          echo "Reachable installer attempt ${attempt} failed; retrying." >&2
+          sleep 5
+        done
         reachctl version
         echo "Reachable cache size: $(du -sh "$HOME/.reachable" 2>/dev/null | awk '{print $1}' || echo 0)"
 
@@ -58,4 +67,3 @@ runs:
       with:
         path: ~/.reachable
         key: reachable-${{ runner.os }}-${{ github.repository_id }}-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
-

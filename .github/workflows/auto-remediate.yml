@@ -12,9 +12,9 @@ on:
       rescan_only:
         type: boolean
         default: false
-      remediation_mode:
+      ai_mode:
         type: string
-        default: codex-openai
+        default: openai-codex
       agent_model:
         type: string
         default: ""
@@ -36,6 +36,9 @@ on:
       fail_on:
         type: string
         default: exploitable
+      proof_fail_on:
+        type: string
+        default: ""
       scan_extra_flags:
         type: string
         default: ""
@@ -89,7 +92,7 @@ jobs:
       REACHABLE_VERSION: ${{ inputs.reachable_version }}
       REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
       REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
-      REACHABLE_REMEDIATION_MODE: ${{ inputs.remediation_mode }}
+      REACHABLE_AI_MODE: ${{ inputs.ai_mode }}
       REACHABLE_AGENT_MODEL: ${{ inputs.agent_model }}
       REACHABLE_AGENT_TIMEOUT_SEC: ${{ inputs.agent_timeout_sec }}
       REACHABLE_PROMPT_PROFILE: ${{ inputs.prompt_profile }}
@@ -97,6 +100,7 @@ jobs:
       REACHABLE_MAX_BATCHES: ${{ inputs.max_batches }}
       REACHABLE_RESCAN_STRATEGY: ${{ inputs.rescan_strategy }}
       REACHABLE_FAIL_ON: ${{ inputs.fail_on }}
+      REACHABLE_PROOF_FAIL_ON: ${{ inputs.proof_fail_on }}
       REACHABLE_SCAN_EXTRA_FLAGS: ${{ inputs.scan_extra_flags }}
       REACHABLE_CREATE_PR: ${{ inputs.create_pr }}
       REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
@@ -116,54 +120,117 @@ jobs:
           ref: ${{ inputs.target_branch }}
           token: ${{ github.token }}
 
-      - name: Resolve remediation mode
+      - name: Validate Reachable inputs
         shell: bash
         run: |
           set -euo pipefail
-          normalize_remediation_mode() {
-            mode="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]')"
-            case "$mode" in
-              codex-openai|openai-codex|codex|openai)
-                printf '%s\n' "codex-openai"
-                ;;
-              claude-anthropic|anthropic-claude|claude|anthropic)
-                printf '%s\n' "claude-anthropic"
-                ;;
-              *)
-                echo "unsupported remediation_mode: $1 (expected canonical codex-openai or claude-anthropic; accepted compatibility aliases: openai-codex, codex, openai, anthropic-claude, claude, anthropic)" >&2
-                return 2
-                ;;
+          normalize_token() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+          }
+          normalize_bool() {
+            local name="$1"
+            local value
+            value="$(normalize_token "$2")"
+            case "$value" in
+              true|false) printf '%s\n' "$value" ;;
+              *) echo "${name} must be true or false; got '$2'." >&2; return 2 ;;
             esac
           }
+          normalize_positive_int() {
+            local name="$1"
+            local value
+            value="$(normalize_token "$2")"
+            if ! printf '%s' "$value" | grep -Eq '^[0-9]+$' || [ "${value:-0}" -lt 1 ]; then
+              echo "${name} must be a positive integer; got '$2'." >&2
+              return 2
+            fi
+            printf '%s\n' "$value"
+          }
+          normalize_fail_on() {
+            local value
+            value="$(normalize_token "$1")"
+            case "$value" in
+              critical|high|medium|any|reachable|exploitable|none) printf '%s\n' "$value" ;;
+              *) echo "fail_on must be critical, high, medium, any, reachable, exploitable, or none; got '$1'." >&2; return 2 ;;
+            esac
+          }
+          normalize_choice() {
+            local name="$1"
+            local value="$2"
+            shift 2
+            value="$(normalize_token "$value")"
+            for choice in "$@"; do
+              if [ "$value" = "$choice" ]; then
+                printf '%s\n' "$value"
+                return 0
+              fi
+            done
+            echo "${name} has unsupported value '$2'." >&2
+            return 2
+          }
 
-          normalized_mode="$(normalize_remediation_mode "${REACHABLE_REMEDIATION_MODE}")"
+          normalized_remediate="$(normalize_bool remediate "${REACHABLE_REMEDIATE_ENABLED}")"
+          normalized_rescan_only="$(normalize_bool rescan_only "${REACHABLE_RESCAN_ONLY}")"
+          normalized_create_pr="$(normalize_bool create_pr "${REACHABLE_CREATE_PR}")"
+          normalized_publish_report="$(normalize_bool publish_report "${REACHABLE_PUBLISH_REPORT}")"
+          normalized_require_ai="$(normalize_bool require_ai "${REACHABLE_REQUIRE_AI}")"
+          normalized_fresh_scan="$(normalize_bool fresh_scan "${REACHABLE_FRESH_SCAN}")"
+          echo "REACHABLE_REMEDIATE_ENABLED=${normalized_remediate}" >> "$GITHUB_ENV"
+          echo "REACHABLE_RESCAN_ONLY=${normalized_rescan_only}" >> "$GITHUB_ENV"
+          echo "REACHABLE_CREATE_PR=${normalized_create_pr}" >> "$GITHUB_ENV"
+          echo "REACHABLE_PUBLISH_REPORT=${normalized_publish_report}" >> "$GITHUB_ENV"
+          echo "REACHABLE_REQUIRE_AI=${normalized_require_ai}" >> "$GITHUB_ENV"
+          echo "REACHABLE_FRESH_SCAN=${normalized_fresh_scan}" >> "$GITHUB_ENV"
+          normalized_timeout="$(normalize_positive_int agent_timeout_sec "${REACHABLE_AGENT_TIMEOUT_SEC}")"
+          normalized_batches="$(normalize_positive_int max_batches "${REACHABLE_MAX_BATCHES}")"
+          if [ "$normalized_batches" -gt 10 ]; then
+            echo "max_batches must be between 1 and 10; got '${REACHABLE_MAX_BATCHES}'." >&2
+            exit 2
+          fi
+          echo "REACHABLE_AGENT_TIMEOUT_SEC=${normalized_timeout}" >> "$GITHUB_ENV"
+          echo "REACHABLE_MAX_BATCHES=${normalized_batches}" >> "$GITHUB_ENV"
+          echo "REACHABLE_RESCAN_STRATEGY=$(normalize_choice rescan_strategy "${REACHABLE_RESCAN_STRATEGY}" each_batch final_only)" >> "$GITHUB_ENV"
+          echo "REACHABLE_PROMPT_PROFILE=$(normalize_choice prompt_profile "${REACHABLE_PROMPT_PROFILE}" aggressive balanced nightly release safe)" >> "$GITHUB_ENV"
+          normalized_fail_on="$(normalize_fail_on "${REACHABLE_FAIL_ON}")"
+          normalized_proof_fail_on="$normalized_fail_on"
+          if [ -n "$(normalize_token "${REACHABLE_PROOF_FAIL_ON}")" ]; then
+            normalized_proof_fail_on="$(normalize_fail_on "${REACHABLE_PROOF_FAIL_ON}")"
+          fi
+          echo "REACHABLE_FAIL_ON=${normalized_fail_on}" >> "$GITHUB_ENV"
+          echo "REACHABLE_PROOF_FAIL_ON=${normalized_proof_fail_on}" >> "$GITHUB_ENV"
+
+          normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude)"
+          if [ "$normalized_mode" = "openai-gpt" ] && [ "$normalized_remediate" = "true" ]; then
+            echo "ai_mode=openai-gpt is scan-only. Use openai-codex for remediation, or set remediate=false." >&2
+            exit 2
+          fi
           case "$normalized_mode" in
-            codex-openai)
-              echo "REACHABLE_REMEDIATION_MODE=codex-openai" >> "$GITHUB_ENV"
+            openai-codex|openai-gpt)
+              echo "REACHABLE_AI_MODE=${normalized_mode}" >> "$GITHUB_ENV"
               echo "REACHABLE_AGENT=codex" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=openai" >> "$GITHUB_ENV"
               if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
                 echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"
               fi
-              if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
-                echo "remediation_mode=codex-openai requires OPENAI_API_KEY." >&2
+              if [ "$normalized_require_ai" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+                echo "ai_mode=${normalized_mode} requires OPENAI_API_KEY." >&2
                 exit 2
               fi
               ;;
-            claude-anthropic)
-              echo "REACHABLE_REMEDIATION_MODE=claude-anthropic" >> "$GITHUB_ENV"
+            anthropic-claude)
+              echo "REACHABLE_AI_MODE=anthropic-claude" >> "$GITHUB_ENV"
               echo "REACHABLE_AGENT=claude" >> "$GITHUB_ENV"
               echo "REACHABLE_LLM_PROVIDER=claude" >> "$GITHUB_ENV"
               if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
                 echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"
               fi
-              if [ "${REACHABLE_REQUIRE_AI}" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-                echo "remediation_mode=claude-anthropic requires ANTHROPIC_API_KEY." >&2
+              if [ "$normalized_require_ai" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+                echo "ai_mode=anthropic-claude requires ANTHROPIC_API_KEY." >&2
                 exit 2
               fi
               ;;
           esac
-          echo "Reachable remediation mode resolved: ${normalized_mode}"
+          echo "Reachable AI mode resolved: ${normalized_mode}"
 
       - name: Setup Reachable
         uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
@@ -238,7 +305,19 @@ jobs:
         run: |
           set -euo pipefail
           branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
-          reachctl scan . --ci --fail-on "${REACHABLE_FAIL_ON}" --branch "$branch" --commit "$(git rev-parse HEAD)"
+          provider_args=()
+          if [ -n "${REACHABLE_LLM_PROVIDER:-}" ]; then
+            provider_args+=(--ai-provider "$REACHABLE_LLM_PROVIDER")
+          fi
+          # shellcheck disable=SC2206
+          extra_args=(${REACHABLE_SCAN_EXTRA_FLAGS})
+          reachctl scan . --ci \
+            --fail-on "${REACHABLE_PROOF_FAIL_ON}" \
+            --branch "$branch" \
+            --commit "$(git rev-parse HEAD)" \
+            --sarif .reachable/ci-artifacts/reachable-after-final.sarif \
+            "${provider_args[@]}" \
+            "${extra_args[@]}"
 
       - name: Push remediation branch
         if: ${{ inputs.remediate && !inputs.rescan_only }}

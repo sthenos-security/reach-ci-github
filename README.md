@@ -68,9 +68,8 @@ customer path is:
    The important bits are write permissions for `GITHUB_TOKEN`, PR creation by
    Actions, and permission to call this reusable workflow.
 3. Add one model-provider secret.
-   Use `OPENAI_API_KEY` for `codex-openai` (aliases `openai-codex`, `codex`,
-   `openai`) or `ANTHROPIC_API_KEY` for `claude-anthropic` (aliases
-   `anthropic-claude`, `claude`, `anthropic`).
+   Use `OPENAI_API_KEY` for `ai_mode=openai-gpt` or `ai_mode=openai-codex`,
+   or `ANTHROPIC_API_KEY` for `ai_mode=anthropic-claude`.
    Optional Reachable enrichment secrets are listed in
    [Secrets And Variables](#secrets-and-variables).
 4. Add the small caller workflow from [Minimal Workflow](#minimal-workflow), or
@@ -116,7 +115,7 @@ Recommended production defaults:
 
 | Setting | Recommended Value | Why |
 |---------|-------------------|-----|
-| `remediation_mode` | `codex-openai` | Canonical lanes are `codex-openai` and `claude-anthropic`; compatibility aliases are normalized before use. The Codex path pins `gpt-5.4-mini`; the Claude path pins `claude-sonnet-4-5-20250929`. |
+| `ai_mode` | `openai-codex` | Public lane selector. Use `openai-gpt` for OpenAI scan-only, `openai-codex` for OpenAI plus Codex remediation, or `anthropic-claude` for Anthropic plus Claude remediation. |
 | `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
 | `agent_timeout_sec` | `1800` | Per-batch coding-agent timeout. The timer resets for each remediation batch. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
@@ -124,8 +123,9 @@ Recommended production defaults:
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
 | `publish_report` | `true` | Gives reviewers a stable proof artifact when Reachable setup succeeded; otherwise the workflow skips report rendering instead of failing late. |
 | `fresh_scan` | `false` | Faster normal CI; use `true` for release smoke tests. |
-The `reach-testbed-go` demo follows the same customer path, but pins the beta
-wheel, uses `fresh_scan=true`, and uses `max_batches=1` so the release smoke can
+The dedicated GitHub marketplace remediation demo follows the same customer
+path, uses latest-by-default Reachable installation, `fresh_scan=true`, and
+`max_batches=1` so the release smoke can
 prove install, scan, remediation handoff, branch push, proof scan, and PR wiring
 quickly. A production repository should increase batches only when it wants the
 workflow to address a larger queue in one run.
@@ -143,7 +143,7 @@ from reachable.ci.autoremediation import (
 write_github_workflow(
     ".github/workflows/reachable-remediation.yml",
     GitHubAutoRemediationConfig(
-        remediation_mode="codex-openai",
+        ai_mode="openai-codex",
         max_batches=3,
         create_pr=True,
         publish_report=True,
@@ -183,9 +183,10 @@ jobs:
     with:
       target_branch: main
       fail_on: exploitable
+      proof_fail_on: exploitable
       remediate: true
       rescan_only: false
-      remediation_mode: codex-openai
+      ai_mode: openai-codex
       max_batches: 3
       rescan_strategy: each_batch
       create_pr: true
@@ -199,8 +200,9 @@ Then configure one model-provider secret:
 
 | Mode | Required Secret | Agent Lane |
 |------|-----------------|------------|
-| `codex-openai` or `openai-codex` | `OPENAI_API_KEY` | Codex with OpenAI |
-| `claude-anthropic` or `anthropic-claude` | `ANTHROPIC_API_KEY` | Claude Code with Anthropic |
+| `openai-gpt` | `OPENAI_API_KEY` | OpenAI scan-only; rejected when `remediate=true` |
+| `openai-codex` | `OPENAI_API_KEY` | OpenAI scan plus Codex remediation |
+| `anthropic-claude` | `ANTHROPIC_API_KEY` | Anthropic scan plus Claude Code remediation |
 
 ## Repository Settings
 
@@ -237,7 +239,7 @@ caller workflow.
 | `workflow_name` | `Reachable Auto Remediation` | Workflow `name` | Display name in GitHub Actions. |
 | `reusable_workflow` | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Job `uses` | Must include an explicit ref such as `@v1`. |
 | `target_branch` | `main` | `target_branch` dispatch default | Branch to scan or verify. |
-| `remediation_mode` | `codex-openai` | `remediation_mode` | Canonical values are `codex-openai` and `claude-anthropic`; aliases such as `codex`, `openai`, `claude`, and `anthropic` are normalized before use. |
+| `ai_mode` | `openai-codex` | `ai_mode` | Public lane selector: `openai-gpt`, `openai-codex`, or `anthropic-claude`. |
 | `agent_model` | empty | `agent_model` | Optional remediation-model override passed through to the selected coding agent. Leave unset for the pinned defaults. |
 | `agent_timeout_sec` | `1800` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. The timer resets on every batch. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
@@ -245,6 +247,7 @@ caller workflow.
 | `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
 | `rescan_strategy` | `each_batch` | `rescan_strategy` | `each_batch` or `final`. |
 | `fail_on` | `exploitable` | `fail_on` | Single customer-facing policy threshold. The workflow keeps the baseline non-blocking during remediation, then applies this threshold to the proof scan. |
+| `proof_fail_on` | empty | `proof_fail_on` | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
 | `create_pr` | `true` | `create_pr` | Opens a PR only after a branch is pushed. |
 | `publish_report` | `true` | `publish_report` | Publishes sanitized proof artifacts. If Reachable never finished setup, the workflow skips report rendering instead of failing during cleanup. |
 | `require_ai` | `true` | `require_ai` | Fails early when the selected provider key is missing. |
@@ -255,8 +258,8 @@ caller workflow.
 
 | Secret | Required When | Purpose |
 |--------|---------------|---------|
-| `OPENAI_API_KEY` | `remediation_mode=codex-openai` or `openai-codex` | Used by Reachable AI analysis and the Codex coding-agent lane. |
-| `ANTHROPIC_API_KEY` | `remediation_mode=claude-anthropic`, `anthropic-claude`, `claude`, or `anthropic` | Used by Reachable AI analysis and the Claude Code lane. |
+| `OPENAI_API_KEY` | `ai_mode=openai-gpt` or `ai_mode=openai-codex` | Used by Reachable AI analysis and, for `openai-codex`, the Codex coding-agent lane. |
+| `ANTHROPIC_API_KEY` | `ai_mode=anthropic-claude` | Used by Reachable AI analysis and the Claude Code lane. |
 
 Set these in GitHub:
 
@@ -308,12 +311,13 @@ workflow calls this reusable workflow.
 | `target_branch` | `main` | Branch to scan, or branch to verify when `rescan_only=true`. |
 | `remediate` | `true` | Kill switch for code-writing remediation. |
 | `rescan_only` | `false` | Verify an existing branch without editing code. |
-| `remediation_mode` | `codex-openai` | Selects the coding-agent/provider lane. |
+| `ai_mode` | `openai-codex` | Selects the scan/provider and remediation-agent lane. |
 | `agent_timeout_sec` | `1800` | Per-batch timeout for the selected coding agent. The timeout resets on every remediation batch. |
 | `prompt_profile` | `balanced` | Bundling profile passed to Reachable. |
 | `signal_types` | `all` | Signal families to include in the remediation bundle. |
 | `max_batches` | `3` | Maximum serialized remediation loops. The workflow stops early when no release blockers remain. |
 | `rescan_strategy` | `each_batch` | Rescan after each batch or only at the end. |
+| `proof_fail_on` | empty | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
 | `scan_extra_flags` | empty | Optional additional flags passed to `reachctl scan`; keep empty unless Reachable support asks for a specific scan flag. |
 | `create_pr` | `true` | Open a PR after DB proof passes. |
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
@@ -334,20 +338,21 @@ of setting these directly.
 | `REACHABLE_VERSION` | `reachable_version` | Installer release pin. |
 | `REACHABLE_REMEDIATE_ENABLED` | `remediate` | Enables code-writing remediation. |
 | `REACHABLE_RESCAN_ONLY` | `rescan_only` | Verifies an existing branch without editing. |
-| `REACHABLE_REMEDIATION_MODE` | `remediation_mode` | Selects Codex/OpenAI or Claude/Anthropic lane. |
+| `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, or `anthropic-claude`. |
 | `REACHABLE_AGENT_TIMEOUT_SEC` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. |
 | `REACHABLE_PROMPT_PROFILE` | `prompt_profile` | Passed to `reachctl remediate`. |
 | `REACHABLE_SIGNAL_TYPES` | `signal_types` | Selects signal families for the bundle. |
 | `REACHABLE_MAX_BATCHES` | `max_batches` | Bounds remediation loop count. |
 | `REACHABLE_RESCAN_STRATEGY` | `rescan_strategy` | Controls proof scan cadence. |
-| `REACHABLE_FAIL_ON` | `fail_on` | Single customer-facing policy threshold. Baseline is forced non-blocking during remediation; proof scan uses this value. |
+| `REACHABLE_FAIL_ON` | `fail_on` | Scan/baseline threshold. Baseline is forced non-blocking during remediation. |
+| `REACHABLE_PROOF_FAIL_ON` | `proof_fail_on` or `fail_on` | Post-remediation proof threshold. |
 | `REACHABLE_SCAN_EXTRA_FLAGS` | `scan_extra_flags` | Additional scan flags, normally empty. |
 | `REACHABLE_CREATE_PR` | `create_pr` | Controls PR creation. |
 | `REACHABLE_PUBLISH_REPORT` | `publish_report` | Controls proof artifact publication. |
 | `REACHABLE_REQUIRE_AI` | `require_ai` | Credential preflight behavior. |
 | `REACHABLE_FRESH_SCAN` | `fresh_scan` | Cache deletion behavior. |
-| `REACHABLE_AGENT` | resolved from `remediation_mode` | `codex` or `claude`. |
-| `REACHABLE_LLM_PROVIDER` | resolved from `remediation_mode` | `openai` or `claude` for Reachable scan AI. |
+| `REACHABLE_AGENT` | resolved from `ai_mode` | `codex` or `claude` for remediation-capable lanes. |
+| `REACHABLE_LLM_PROVIDER` | resolved from `ai_mode` | `openai` or `claude` for Reachable scan AI. |
 | `REACHABLE_REMEDIATION_BRANCH` | generated by workflow | Branch name for agent edits and proof scan. |
 | `REACHABLE_BRANCH_PUSHED` | generated by workflow | Guards PR creation. |
 | `REACHABLE_PROOF_COMMIT` | generated by workflow | Commit shown in the proof page. |
@@ -356,16 +361,16 @@ of setting these directly.
 
 ### Demo Wrapper Values
 
-The `reach-testbed-go` demo uses the same public SDK/reusable workflow path,
-but pins a few values so the release demo is reproducible.
+The dedicated GitHub marketplace remediation demo uses the same public
+SDK/reusable workflow path and keeps the demo-specific controls explicit.
 
 | Demo setting | Value | Why |
 |--------------|-------|-----|
-| Caller workflow | `reach-testbed-go/.github/workflows/reachable-remediate.yml` | Small wrapper generated from the SDK shape. |
+| Caller workflow | `reach-testbed-github-marketplace/.github/workflows/reachable-remediate.yml` | Small wrapper generated from the SDK shape. |
 | Reusable workflow | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Public customer-facing integration package. |
-| `reachable_version` | current beta, for example `1.0.0b104` | Ensures the demo tests the beta wheel under release validation. |
+| `reachable_version` | empty/latest | Follows the latest Reachable release by default; set an exact value only for reproducible replay. |
 | `reachable_dist_repo` | `sthenos-security/reach-dist` | Pulls the public release installer and wheels. |
-| `remediation_mode` | `codex-openai` | Exercises the default Codex lane. |
+| `ai_mode` | `openai-codex` | Exercises the default Codex lane. |
 | `prompt_profile` | `balanced` | Keeps fixes bounded for a demo-sized queue. |
 | `signal_types` | `all` | Exercises CVE, CWE, secret, DLP, and AI findings. |
 | `max_batches` | `1` for beta smoke, higher for full demos | Fast proof of the CI path; increase only when proving multi-batch remediation. |
@@ -469,7 +474,7 @@ Expected result:
 
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
-| `remediation_mode=codex-openai requires OPENAI_API_KEY` | Missing provider secret. | Add `OPENAI_API_KEY` to repository or organization Actions secrets. |
+| `ai_mode=openai-codex requires OPENAI_API_KEY` | Missing provider secret. | Add `OPENAI_API_KEY` to repository or organization Actions secrets. |
 | PR branch pushed but no PR opened | GitHub Actions cannot create PRs. | Enable "Allow GitHub Actions to create and approve pull requests" and `pull-requests: write`. |
 | Proof page reports blockers after remediation | The agent fixed only part of the queue or a finding needs manual review. | Review the branch and proof summary; rerun with more batches only if the remaining item is safe to automate. |
 | Project tests did not run inside Reachable | The reusable workflow does not execute project test commands. | Use the remediation prompt, local release harnesses, and the application's normal CI/branch protection for language-specific validation. |

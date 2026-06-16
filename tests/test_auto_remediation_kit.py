@@ -13,11 +13,13 @@ REMEDIATION_CORE = (ROOT / "scripts" / "remediation-core.sh").read_text(encoding
 
 class WorkflowContractTests(unittest.TestCase):
     def test_mode_aliases_and_model_override_are_supported(self) -> None:
-        self.assertIn("codex-openai|openai-codex|codex|openai", WORKFLOW)
-        self.assertIn("claude-anthropic|anthropic-claude|claude|anthropic", WORKFLOW)
+        self.assertIn("openai-codex openai-gpt anthropic-claude", WORKFLOW)
+        self.assertIn("ai_mode=openai-gpt is scan-only", WORKFLOW)
+        self.assertIn("REACHABLE_PROOF_FAIL_ON", WORKFLOW)
         self.assertIn('if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then', WORKFLOW)
         self.assertIn('echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"', WORKFLOW)
         self.assertIn('echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"', WORKFLOW)
+        self.assertIn("--sarif .reachable/ci-artifacts/reachable-after-final.sarif", WORKFLOW)
 
     def test_publish_report_skips_when_reachable_setup_never_happened(self) -> None:
         self.assertIn('if ! command -v reachctl >/dev/null 2>&1; then', WORKFLOW)
@@ -38,8 +40,17 @@ class WorkflowContractTests(unittest.TestCase):
     def test_validator_tracks_publish_and_claude_contracts(self) -> None:
         self.assertIn("Reachable Python package is unavailable; skipping report publication.", VALIDATOR)
         self.assertIn("Apply the Reachable remediation task provided on stdin", VALIDATOR)
-        self.assertIn("claude-anthropic|anthropic-claude|claude|anthropic", VALIDATOR)
+        self.assertIn("ai_mode=openai-gpt is scan-only", VALIDATOR)
         self.assertIn('run_with_timeout \\"$agent_timeout_sec\\"', VALIDATOR)
+
+    def test_setup_and_pr_actions_have_ci_fallbacks(self) -> None:
+        setup = (ROOT / "actions" / "setup-reachable" / "action.yml").read_text(encoding="utf-8")
+        pr_action = (ROOT / "actions" / "open-remediation-pr" / "action.yml").read_text(encoding="utf-8")
+        self.assertIn("for attempt in 1 2 3", setup)
+        self.assertIn("Reachable installer failed after", setup)
+        self.assertIn("pr-created=false", pr_action)
+        self.assertIn("GitHub rejected automatic PR creation", pr_action)
+        self.assertIn("open a PR manually", pr_action)
 
     def test_portable_timeout_wrapper_is_embedded_in_remediation_core(self) -> None:
         self.assertIn('run_with_timeout() {', REMEDIATION_CORE)
