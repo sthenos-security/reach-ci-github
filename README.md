@@ -12,17 +12,34 @@ The goal is simple: set a small number of variables/secrets, run a workflow, and
 receive structured proof artifacts plus an optional remediation branch and PR
 for human review.
 
+Canonical docs:
+- Site: <https://sthenosec.com/>
+- Primer: <https://sthenosec.com/docs/primer>
+- Auto-remediation overview: <https://sthenosec.com/resources/auto-remediation>
+
 ## Quick Start
 
-1. Add one model provider secret to the application repository:
+1. Add the repository secrets Reachable needs:
    `OPENAI_API_KEY` for the default Codex/OpenAI lane, or `ANTHROPIC_API_KEY`
-   for the Claude/Anthropic lane.
+   for the Claude/Anthropic lane. Add `MCP_GITHUB_TOKEN` when you want GitHub
+   MCP context and faster richer source/package lookup.
 2. Enable the GitHub repository settings listed in
    [Repository Settings](#repository-settings).
 3. Add `.github/workflows/reachable-remediation.yml` using the example below,
    or generate it with the SDK snippet in [SDK Usage](#sdk-usage).
 4. Run **Actions -> Reachable Auto Remediation -> Run workflow**.
 5. Review the proof artifacts, remediation branch, and PR if `create_pr=true`.
+
+**Required tokens for customer-facing use**
+
+- AI token: set `OPENAI_API_KEY` for the default Codex/OpenAI lane, or
+  `ANTHROPIC_API_KEY` for the Claude/Anthropic lane. This is required.
+- MCP GitHub token: set `MCP_GITHUB_TOKEN` as a fine-grained PAT with
+  `Contents: Read` on the repos Reachable should inspect. This is recommended
+  for faster richer clone, source, and package context.
+- GitHub control token: GitHub Actions already provides `GITHUB_TOKEN`
+  automatically for checkout, branch push, PR creation, artifact upload, and
+  Pages publishing.
 
 ## What It Does
 
@@ -76,6 +93,18 @@ On each auto-remediation run, the workflow:
 6. Rescans the branch to produce proof from the current branch state.
 7. Pushes the branch, opens a PR when configured, and uploads sanitized proof
    artifacts.
+
+Use one customer-facing threshold: `fail_on`.
+
+For remediation runs, the baseline scan is there to collect evidence and build
+the remediation bundle. The reusable workflow keeps that baseline non-blocking,
+then applies `fail_on` to the proof scan after remediation.
+
+In practice:
+
+- scan-only mode applies `fail_on` directly, for example `fail_on: exploitable`
+- remediation mode still uses the same `fail_on` value, but applies it at the
+  end of the proof scan after remediation
 
 The review object for the customer is the remediation PR plus the Reachable
 proof artifacts. Review the code diff, release-blocker count, proof page, and
@@ -153,6 +182,7 @@ jobs:
     uses: sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1
     with:
       target_branch: main
+      fail_on: exploitable
       remediate: true
       rescan_only: false
       remediation_mode: codex-openai
@@ -214,6 +244,7 @@ caller workflow.
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
 | `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
 | `rescan_strategy` | `each_batch` | `rescan_strategy` | `each_batch` or `final`. |
+| `fail_on` | `exploitable` | `fail_on` | Single customer-facing policy threshold. The workflow keeps the baseline non-blocking during remediation, then applies this threshold to the proof scan. |
 | `create_pr` | `true` | `create_pr` | Opens a PR only after a branch is pushed. |
 | `publish_report` | `true` | `publish_report` | Publishes sanitized proof artifacts. If Reachable never finished setup, the workflow skips report rendering instead of failing during cleanup. |
 | `require_ai` | `true` | `require_ai` | Fails early when the selected provider key is missing. |
@@ -232,6 +263,21 @@ Set these in GitHub:
 ```text
 Repository -> Settings -> Secrets and variables -> Actions -> New repository secret
 ```
+
+### CI Token Table
+
+| Token | Create as | Minimum permission/scopes | Secret name | Why |
+|-------|-----------|---------------------------|-------------|-----|
+| AI token | OpenAI API key or Anthropic API key | Provider account key | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Required for representative Reachable analysis and the remediation lane |
+| GitHub MCP token | GitHub fine-grained PAT | Repository access to the repos Reachable needs, `Contents: Read` | `MCP_GITHUB_TOKEN` | Recommended for MCP context and faster richer source/package lookup |
+| GitHub control token | Built-in GitHub Actions token | Provided automatically by GitHub Actions | `GITHUB_TOKEN` | Checkout, branch push, report upload, Pages deploy, and PR creation |
+
+For `MCP_GITHUB_TOKEN`, create a **fine-grained personal access token** in
+**GitHub -> Settings -> Developer settings -> Personal access tokens ->
+Fine-grained tokens**. Select the owner, limit access to the repositories
+Reachable should inspect, and grant **Repository permissions -> Contents: Read**.
+There is no separate "MCP permission". If you also need private GitHub Packages,
+the primer covers when to use a classic PAT with `read:packages`.
 
 ### Optional Reachable Secrets
 
@@ -294,6 +340,7 @@ of setting these directly.
 | `REACHABLE_SIGNAL_TYPES` | `signal_types` | Selects signal families for the bundle. |
 | `REACHABLE_MAX_BATCHES` | `max_batches` | Bounds remediation loop count. |
 | `REACHABLE_RESCAN_STRATEGY` | `rescan_strategy` | Controls proof scan cadence. |
+| `REACHABLE_FAIL_ON` | `fail_on` | Single customer-facing policy threshold. Baseline is forced non-blocking during remediation; proof scan uses this value. |
 | `REACHABLE_SCAN_EXTRA_FLAGS` | `scan_extra_flags` | Additional scan flags, normally empty. |
 | `REACHABLE_CREATE_PR` | `create_pr` | Controls PR creation. |
 | `REACHABLE_PUBLISH_REPORT` | `publish_report` | Controls proof artifact publication. |
@@ -348,6 +395,7 @@ Use this when you want a structured posture report without code changes.
 
 ```yaml
 with:
+  fail_on: exploitable
   remediate: false
   rescan_only: false
   publish_report: true
@@ -366,6 +414,7 @@ Use this when you want to inspect the generated branch before automating PRs.
 
 ```yaml
 with:
+  fail_on: exploitable
   remediate: true
   create_pr: false
   max_batches: 3
@@ -385,6 +434,7 @@ Use this after the repository settings are validated.
 
 ```yaml
 with:
+  fail_on: exploitable
   remediate: true
   create_pr: true
   max_batches: 3
@@ -404,6 +454,7 @@ Use this to prove a remediation branch again without changing code.
 ```yaml
 with:
   target_branch: reachable-remediate-YYYYMMDD-HHMMSS-COMMIT
+  fail_on: exploitable
   remediate: false
   rescan_only: true
 ```

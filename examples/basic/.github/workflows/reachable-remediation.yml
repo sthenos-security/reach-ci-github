@@ -16,12 +16,11 @@ jobs:
     uses: sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1
     with:
       target_branch: main
+      fail_on: exploitable
       remediate: true
       rescan_only: false
       remediation_mode: codex-openai
       max_batches: 3
       rescan_strategy: each_batch
       create_pr: true
-      run_project_tests: false
-      test_preset: none
     secrets: inherit

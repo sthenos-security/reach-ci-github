@@ -33,6 +33,9 @@ on:
       rescan_strategy:
         type: string
         default: each_batch
+      fail_on:
+        type: string
+        default: exploitable
       scan_extra_flags:
         type: string
         default: ""
@@ -93,6 +96,7 @@ jobs:
       REACHABLE_SIGNAL_TYPES: ${{ inputs.signal_types }}
       REACHABLE_MAX_BATCHES: ${{ inputs.max_batches }}
       REACHABLE_RESCAN_STRATEGY: ${{ inputs.rescan_strategy }}
+      REACHABLE_FAIL_ON: ${{ inputs.fail_on }}
       REACHABLE_SCAN_EXTRA_FLAGS: ${{ inputs.scan_extra_flags }}
       REACHABLE_CREATE_PR: ${{ inputs.create_pr }}
       REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
@@ -179,7 +183,12 @@ jobs:
           fi
           # shellcheck disable=SC2206
           extra_args=(${REACHABLE_SCAN_EXTRA_FLAGS})
+          baseline_fail_on="${REACHABLE_FAIL_ON}"
+          if [ "${REACHABLE_REMEDIATE_ENABLED}" = "true" ] || [ "${REACHABLE_RESCAN_ONLY}" = "true" ]; then
+            baseline_fail_on="none"
+          fi
           reachctl scan . --ci \
+            --fail-on "${baseline_fail_on}" \
             --branch "${GITHUB_REF_NAME:-${{ inputs.target_branch }}}" \
             --commit "$(git rev-parse HEAD)" \
             --sarif .reachable/ci-artifacts/reachable.sarif \
@@ -229,7 +238,7 @@ jobs:
         run: |
           set -euo pipefail
           branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"
-          reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"
+          reachctl scan . --ci --fail-on "${REACHABLE_FAIL_ON}" --branch "$branch" --commit "$(git rev-parse HEAD)"
 
       - name: Push remediation branch
         if: ${{ inputs.remediate && !inputs.rescan_only }}
