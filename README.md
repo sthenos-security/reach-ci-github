@@ -3,7 +3,7 @@
 Reusable GitHub Actions integration for REACHABLE risk exposure reduction and
 reviewable auto-remediation.
 
-This repository is the customer-facing GitHub CI package. Application
+This repository is the customer-facing GitHub CI toolkit. Application
 repositories should call the reusable workflow here, or generate that caller
 workflow with the Reachable SDK, instead of copying demo scripts from a testbed
 repository.
