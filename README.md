@@ -299,7 +299,6 @@ caller workflow.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `REACHABLE_DIST_REPO` | `sthenos-security/reach-dist` | Distribution repository containing `install.sh`. |
-| `REACHABLE_VERSION` | empty/latest | Optional release pin when the caller does not pass `reachable_version`. |
 
 ### Workflow Inputs
 
@@ -323,7 +322,6 @@ workflow calls this reusable workflow.
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
-| `reachable_version` | empty | Pin a Reachable release version. Empty uses the installer default/latest. |
 | `reachable_dist_repo` | `sthenos-security/reach-dist` | Distribution repository containing `install.sh`. |
 
 ### Runtime Environment
@@ -335,7 +333,6 @@ of setting these directly.
 | Environment variable | Derived from | Used for |
 |----------------------|--------------|----------|
 | `REACHABLE_DIST_REPO` | `reachable_dist_repo` | Installer source repository. |
-| `REACHABLE_VERSION` | `reachable_version` | Installer release pin. |
 | `REACHABLE_REMEDIATE_ENABLED` | `remediate` | Enables code-writing remediation. |
 | `REACHABLE_RESCAN_ONLY` | `rescan_only` | Verifies an existing branch without editing. |
 | `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, or `anthropic-claude`. |
@@ -368,7 +365,6 @@ SDK/reusable workflow path and keeps the demo-specific controls explicit.
 |--------------|-------|-----|
 | Caller workflow | `reach-testbed-github-marketplace/.github/workflows/reachable-remediate.yml` | Small wrapper generated from the SDK shape. |
 | Reusable workflow | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Public customer-facing integration package. |
-| `reachable_version` | empty/latest | Follows the latest Reachable release by default; set an exact value only for reproducible replay. |
 | `reachable_dist_repo` | `sthenos-security/reach-dist` | Pulls the public release installer and wheels. |
 | `ai_mode` | `openai-codex` | Exercises the default Codex lane. |
 | `prompt_profile` | `balanced` | Keeps fixes bounded for a demo-sized queue. |

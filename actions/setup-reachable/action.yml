@@ -2,10 +2,6 @@ name: Setup Reachable
 description: Install or update Reachable and report cache evidence.
 
 inputs:
-  version:
-    description: Reachable version to install. Empty means latest from reach-dist.
-    required: false
-    default: ""
   dist-repo:
     description: Distribution repository containing install.sh.
     required: false
@@ -23,9 +19,9 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ~/.reachable
-        key: reachable-${{ runner.os }}-${{ github.repository_id }}-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: reachable-${{ runner.os }}-${{ github.repository_id }}-latest-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
-          reachable-${{ runner.os }}-${{ github.repository_id }}-${{ inputs.version }}-
+          reachable-${{ runner.os }}-${{ github.repository_id }}-latest-
           reachable-${{ runner.os }}-${{ github.repository_id }}-
           reachable-${{ runner.os }}-
 
@@ -44,9 +40,6 @@ runs:
         install_script="${RUNNER_TEMP:-/tmp}/reachable-install.sh"
         installer_url="https://raw.githubusercontent.com/${{ inputs.dist-repo }}/main/install.sh"
         install_args=(--update)
-        if [ -n "${{ inputs.version }}" ]; then
-          install_args+=(--version "${{ inputs.version }}")
-        fi
         for attempt in 1 2 3; do
           if curl -fsSL "$installer_url" -o "$install_script" && bash "$install_script" "${install_args[@]}"; then
             break
@@ -66,4 +59,4 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: ~/.reachable
-        key: reachable-${{ runner.os }}-${{ github.repository_id }}-${{ inputs.version }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: reachable-${{ runner.os }}-${{ github.repository_id }}-latest-${{ github.run_id }}-${{ github.run_attempt }}

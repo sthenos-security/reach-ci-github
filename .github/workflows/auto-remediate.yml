@@ -54,9 +54,6 @@ on:
       fresh_scan:
         type: boolean
         default: false
-      reachable_version:
-        type: string
-        default: ""
       reachable_dist_repo:
         type: string
         default: sthenos-security/reach-dist
@@ -89,7 +86,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REACHABLE_DIST_REPO: ${{ inputs.reachable_dist_repo }}
-      REACHABLE_VERSION: ${{ inputs.reachable_version }}
       REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
       REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
       REACHABLE_AI_MODE: ${{ inputs.ai_mode }}
@@ -235,7 +231,6 @@ jobs:
       - name: Setup Reachable
         uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
         with:
-          version: ${{ inputs.reachable_version }}
           dist-repo: ${{ inputs.reachable_dist_repo }}
           fresh-scan: ${{ inputs.fresh_scan }}
 
