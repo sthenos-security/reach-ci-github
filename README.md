@@ -35,8 +35,9 @@ Canonical docs:
 - AI token: set `OPENAI_API_KEY` for the default Codex/OpenAI lane, or
   `ANTHROPIC_API_KEY` for the Claude/Anthropic lane. This is required.
 - MCP GitHub token: set `MCP_GITHUB_TOKEN` as a fine-grained PAT with
-  `Contents: Read` on the repos Reachable should inspect. This is recommended
-  for faster richer clone, source, and package context.
+  `Contents: Read-only` on the repos Reachable should inspect. This is
+  recommended for faster richer clone, source, and package context, and is also
+  used when MCP source fetch falls back to plain git clone.
 - GitHub control token: GitHub Actions already provides `GITHUB_TOKEN`
   automatically for checkout, branch push, PR creation, artifact upload, and
   Pages publishing.
@@ -272,15 +273,25 @@ Repository -> Settings -> Secrets and variables -> Actions -> New repository sec
 | Token | Create as | Minimum permission/scopes | Secret name | Why |
 |-------|-----------|---------------------------|-------------|-----|
 | AI token | OpenAI API key or Anthropic API key | Provider account key | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Required for representative Reachable analysis and the remediation lane |
-| GitHub MCP token | GitHub fine-grained PAT | Repository access to the repos Reachable needs, `Contents: Read` | `MCP_GITHUB_TOKEN` | Recommended for MCP context and faster richer source/package lookup |
+| GitHub MCP token | GitHub fine-grained PAT | Repository access to the repos Reachable needs, `Contents: Read-only` | `MCP_GITHUB_TOKEN` | Recommended for MCP context, richer source/package lookup, and package git clone fallback |
 | GitHub control token | Built-in GitHub Actions token | Provided automatically by GitHub Actions | `GITHUB_TOKEN` | Checkout, branch push, report upload, Pages deploy, and PR creation |
 
-For `MCP_GITHUB_TOKEN`, create a **fine-grained personal access token** in
-**GitHub -> Settings -> Developer settings -> Personal access tokens ->
-Fine-grained tokens**. Select the owner, limit access to the repositories
-Reachable should inspect, and grant **Repository permissions -> Contents: Read**.
-There is no separate "MCP permission". If you also need private GitHub Packages,
-the primer covers when to use a classic PAT with `read:packages`.
+For `MCP_GITHUB_TOKEN`, create a **fine-grained personal access token** at
+<https://github.com/settings/personal-access-tokens/new>. Select the
+**Resource owner** that owns the GitHub source repos Reachable may inspect. Use
+**Only select repositories** for a small fixed set, or **All repositories** when
+CI must read any current/future repo for that owner; **Public repositories** is
+enough only for public source repos. Grant **Repository permissions -> Contents:
+Read-only**; GitHub adds **Metadata: Read-only** automatically. Do not add write,
+pull request, workflow, administration, or secret permissions.
+
+There is no separate "MCP permission". The token's repository code/metadata read
+access is what powers MCP context and the git clone fallback when MCP cannot
+fetch a package directly. GitHub Actions' built-in `GITHUB_TOKEN` remains the CI
+control token for checkout, branch push, report upload, Pages deploy, and PR
+creation; `MCP_GITHUB_TOKEN` is not used to control CI. If you also need private
+GitHub Packages, the primer covers when to use a classic PAT with
+`read:packages`.
 
 ### Optional Reachable Secrets
 
