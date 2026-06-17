@@ -39,7 +39,7 @@ Reachable tokens are separate from workflow control:
 |--------|---------|
 | `REACHABLE_API_KEY` | Optional product/cloud licensing and enrichment. |
 | `REACHABLE_GITHUB_TOKEN` | Optional GitHub metadata/package enrichment for the scanner. |
-| `MCP_GITHUB_TOKEN` | Recommended read-only GitHub source token for MCP context and package git clone fallback. Use a fine-grained PAT with `Contents: Read-only` on the repos Reachable should inspect. |
+| `MCP_GITHUB_TOKEN` | Recommended read-only GitHub source token for MCP GitHub cloning and package git clone fallback. Use a fine-grained PAT with `Contents: Read-only` on the repos Reachable should inspect. |
 | `OPENAI_API_KEY` | Required for the default Codex/OpenAI lane in customer-facing runs. |
 | `ANTHROPIC_API_KEY` | Required for the Claude/Anthropic lane in customer-facing runs. |
 
