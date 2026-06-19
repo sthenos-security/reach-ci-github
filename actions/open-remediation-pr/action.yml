@@ -51,7 +51,7 @@ runs:
           exit 0
         fi
         printf '%s\n' "$pr_output"
-        pr_url="$(printf '%s\n' "$pr_output" | awk '/^https?:\\/\\// {print; exit}')"
+        pr_url="$(printf '%s\n' "$pr_output" | grep -Eom1 '^https?://[^[:space:]]+$' || true)"
         echo "Reachable remediation PR: ${pr_url}"
         echo "pr-url=${pr_url}" >> "$GITHUB_OUTPUT"
         echo "pr-created=true" >> "$GITHUB_OUTPUT"

@@ -64,6 +64,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("pr-created=false", pr_action)
         self.assertIn("GitHub rejected automatic PR creation", pr_action)
         self.assertIn("open a PR manually", pr_action)
+        self.assertIn("grep -Eom1 '^https?://[^[:space:]]+$'", pr_action)
+        self.assertNotIn("awk '/^https?:\\\\/\\\\// {print; exit}'", pr_action)
 
     def test_portable_timeout_wrapper_is_embedded_in_remediation_core(self) -> None:
         self.assertIn('run_with_timeout() {', REMEDIATION_CORE)
