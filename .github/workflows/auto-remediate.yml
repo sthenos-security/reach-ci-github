@@ -84,6 +84,9 @@ env:
 jobs:
   reachable:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-pages.outputs.page_url }}
     env:
       REACHABLE_DIST_REPO: ${{ inputs.reachable_dist_repo }}
       REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
@@ -361,8 +364,12 @@ jobs:
             --run-url "$run_url" \
             --pull-request-url "${{ steps.open-remediation-pr.outputs.pr-url }}" \
             --workspace "${GITHUB_WORKSPACE}"
-          reachctl export --repo . --format json --output .reachable/ci-artifacts/reachable-report.json || true
-          reachctl export --repo . --format summary --output .reachable/ci-artifacts/reachable-summary.txt || true
+          if ! reachctl export --repo . --format json --output .reachable/ci-artifacts/reachable-report.json; then
+            echo "::warning title=Reachable JSON export unavailable::Proof page publication succeeded, but reachable-report.json could not be generated."
+          fi
+          if ! reachctl export --repo . --format summary --output .reachable/ci-artifacts/reachable-summary.txt; then
+            echo "::warning title=Reachable summary export unavailable::Proof page publication succeeded, but reachable-summary.txt could not be generated."
+          fi
 
       - name: Upload Reachable artifacts
         if: always()
@@ -371,3 +378,18 @@ jobs:
           name: reachable-ci-artifacts
           if-no-files-found: ignore
           path: .reachable/ci-artifacts/**
+
+      - name: Configure Pages
+        if: ${{ always() && inputs.publish_report && hashFiles('.reachable/ci-artifacts/release-proof/index.html') != '' }}
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: ${{ always() && inputs.publish_report && hashFiles('.reachable/ci-artifacts/release-proof/index.html') != '' }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: .reachable/ci-artifacts/release-proof
+
+      - name: Deploy Pages
+        id: deploy-pages
+        if: ${{ always() && inputs.publish_report && hashFiles('.reachable/ci-artifacts/release-proof/index.html') != '' }}
+        uses: actions/deploy-pages@v5

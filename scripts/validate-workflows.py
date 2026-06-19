@@ -160,9 +160,15 @@ def validate_shared_helper_contract() -> None:
         "Reachable Python package is unavailable; skipping report publication.",
         "--pull-request-url",
         ".reachable/ci-artifacts/release-proof",
+        "uses: actions/configure-pages@v6",
+        "uses: actions/upload-pages-artifact@v5",
+        "uses: actions/deploy-pages@v5",
+        "hashFiles('.reachable/ci-artifacts/release-proof/index.html') != ''",
         ".reachable/ci-artifacts/reachable-after-final.sarif",
         ".reachable/ci-artifacts/reachable-report.json",
         ".reachable/ci-artifacts/reachable-summary.txt",
+        "::warning title=Reachable JSON export unavailable::",
+        "::warning title=Reachable summary export unavailable::",
     ):
         if expected not in workflow:
             raise AssertionError(f"workflow is missing standardized report output: {expected}")

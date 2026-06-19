@@ -27,6 +27,19 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn('if ! python -c "import reachable.ci.proof_page" >/dev/null 2>&1; then', WORKFLOW)
         self.assertIn('echo "Reachable Python package is unavailable; skipping report publication."', WORKFLOW)
 
+    def test_publish_report_deploys_public_pages_when_proof_exists(self) -> None:
+        self.assertIn("uses: actions/configure-pages@v6", WORKFLOW)
+        self.assertIn("uses: actions/upload-pages-artifact@v5", WORKFLOW)
+        self.assertIn("uses: actions/deploy-pages@v5", WORKFLOW)
+        self.assertIn("hashFiles('.reachable/ci-artifacts/release-proof/index.html') != ''", WORKFLOW)
+        self.assertIn("path: .reachable/ci-artifacts/release-proof", WORKFLOW)
+
+    def test_optional_exports_warn_instead_of_silent_true(self) -> None:
+        self.assertIn("::warning title=Reachable JSON export unavailable::", WORKFLOW)
+        self.assertIn("::warning title=Reachable summary export unavailable::", WORKFLOW)
+        self.assertNotIn("reachable-report.json || true", WORKFLOW)
+        self.assertNotIn("reachable-summary.txt || true", WORKFLOW)
+
     def test_claude_lane_uses_non_interactive_prompt_with_stdin(self) -> None:
         self.assertIn("--permission-mode bypassPermissions", RUN_AGENT)
         self.assertIn("--no-session-persistence", RUN_AGENT)
