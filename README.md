@@ -8,14 +8,14 @@ repositories should call the reusable workflow here, or generate that caller
 workflow with the Reachable SDK, instead of copying demo scripts from a testbed
 repository.
 
-This repository now also exposes the root Marketplace action entrypoint:
+This repository also exposes a root action entrypoint:
 
 ```yaml
 uses: sthenos-security/reach-ci-github@v1
 ```
 
-That root `action.yml` is the publishable GitHub Marketplace unit. The
-reusable workflow at
+That root `action.yml` is the toolkit action contract used directly by
+advanced callers and by the dedicated Marketplace repo. The reusable workflow at
 [`/.github/workflows/auto-remediate.yml`](.github/workflows/auto-remediate.yml)
 remains the richer orchestration surface for customers who prefer a reusable
 workflow contract.
@@ -28,6 +28,14 @@ Canonical docs:
 - Site: <https://sthenosec.com/>
 - Primer: <https://sthenosec.com/docs/primer>
 - Auto-remediation overview: <https://sthenosec.com/resources/auto-remediation>
+
+Related public GitHub examples:
+
+| Repo | Role |
+|---|---|
+| [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | GitHub Marketplace distribution surface plus the configurable root action. |
+| [`reach-testbed-github-go`](https://github.com/sthenos-security/reach-testbed-github-go) | Go public-clone/remediation proof demo with expected findings and public proof page. |
+| [`reach-testbed-github`](https://github.com/sthenos-security/reach-testbed-github) | Basic GitHub scan demo and simple scanner reference. |
 
 ## Quick Start
 
@@ -42,12 +50,13 @@ Canonical docs:
 4. Run **Actions -> Reachable Auto Remediation -> Run workflow**.
 5. Review the proof artifacts, remediation branch, and PR if `create_pr=true`.
 
-## Marketplace Action
+## Toolkit Action
 
-If you want the GitHub Marketplace install surface, use the root action from
-this repository. The caller workflow still needs normal GitHub job permissions
-and a checkout step, but the product entrypoint is now the repo root instead of
-an internal sub-action.
+If you want the GitHub Marketplace install surface, use
+[`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace).
+Use the root action here when you want the toolkit directly without the
+Marketplace shim. The caller workflow still needs normal GitHub job
+permissions and a checkout step.
 
 ```yaml
 name: Reachable Auto Remediation
@@ -79,7 +88,7 @@ jobs:
           mcp_github_token: ${{ secrets.MCP_GITHUB_TOKEN }}
 ```
 
-The Marketplace action defaults `target_branch` to the current checkout branch.
+The toolkit action defaults `target_branch` to the current checkout branch.
 Use `target_branch` explicitly when your workflow checks out a different ref
 than the branch you want the remediation PR to target.
 
