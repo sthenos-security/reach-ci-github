@@ -42,6 +42,9 @@ on:
       scan_extra_flags:
         type: string
         default: ""
+      scan_mode:
+        type: string
+        default: real
       create_pr:
         type: boolean
         default: true
@@ -101,6 +104,7 @@ jobs:
       REACHABLE_FAIL_ON: ${{ inputs.fail_on }}
       REACHABLE_PROOF_FAIL_ON: ${{ inputs.proof_fail_on }}
       REACHABLE_SCAN_EXTRA_FLAGS: ${{ inputs.scan_extra_flags }}
+      REACHABLE_SCAN_MODE: ${{ inputs.scan_mode }}
       REACHABLE_CREATE_PR: ${{ inputs.create_pr }}
       REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
       REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
@@ -197,6 +201,8 @@ jobs:
           fi
           echo "REACHABLE_FAIL_ON=${normalized_fail_on}" >> "$GITHUB_ENV"
           echo "REACHABLE_PROOF_FAIL_ON=${normalized_proof_fail_on}" >> "$GITHUB_ENV"
+          normalized_scan_mode="$(normalize_choice scan_mode "${REACHABLE_SCAN_MODE}" real nop)"
+          echo "REACHABLE_SCAN_MODE=${normalized_scan_mode}" >> "$GITHUB_ENV"
 
           normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude)"
           if [ "$normalized_mode" = "openai-gpt" ] && [ "$normalized_remediate" = "true" ]; then
@@ -211,7 +217,7 @@ jobs:
               if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
                 echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"
               fi
-              if [ "$normalized_require_ai" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+              if [ "$normalized_scan_mode" = "real" ] && [ "$normalized_require_ai" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
                 echo "ai_mode=${normalized_mode} requires OPENAI_API_KEY." >&2
                 exit 2
               fi
@@ -223,21 +229,43 @@ jobs:
               if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
                 echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"
               fi
-              if [ "$normalized_require_ai" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+              if [ "$normalized_scan_mode" = "real" ] && [ "$normalized_require_ai" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
                 echo "ai_mode=anthropic-claude requires ANTHROPIC_API_KEY." >&2
                 exit 2
               fi
               ;;
           esac
           echo "Reachable AI mode resolved: ${normalized_mode}"
+          echo "Reachable scan mode resolved: ${normalized_scan_mode}"
 
       - name: Setup Reachable
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
         uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
         with:
           dist-repo: ${{ inputs.reachable_dist_repo }}
           fresh-scan: ${{ inputs.fresh_scan }}
 
+      - name: Write NOP integration artifacts
+        if: ${{ env.REACHABLE_SCAN_MODE == 'nop' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .reachable/ci-artifacts
+          printf '%s\n' '{"version":"2.1.0","runs":[]}' > .reachable/ci-artifacts/reachable.sarif
+          printf '%s\n' '{"version":"2.1.0","runs":[]}' > .reachable/ci-artifacts/reachable-after-final.sarif
+          cp .reachable/ci-artifacts/reachable.sarif reachable.sarif
+          {
+            echo "REACHABLE_SCAN_MODE=nop"
+            echo "scanner=skipped"
+            echo "remediation_agent=skipped"
+            echo "branch=${{ inputs.target_branch }}"
+            echo "commit=$(git rev-parse HEAD)"
+          } > .reachable/ci-artifacts/reachable-summary.txt
+          printf '{"scan_mode":"nop","scanner":"skipped","remediation_agent":"skipped","branch":"%s","commit":"%s"}\n' \
+            "${{ inputs.target_branch }}" "$(git rev-parse HEAD)" > .reachable/ci-artifacts/reachable-report.json
+
       - name: Baseline scan
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -261,7 +289,7 @@ jobs:
             "${extra_args[@]}"
 
       - name: Create remediation branch
-        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate && !inputs.rescan_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -275,7 +303,7 @@ jobs:
           echo "Reachable remediation branch: $branch"
 
       - name: Install selected coding agent
-        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate && !inputs.rescan_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -294,11 +322,11 @@ jobs:
           esac
 
       - name: Remediate and verify
-        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate && !inputs.rescan_only }}
         uses: sthenos-security/reach-ci-github/actions/remediation-core@v1
 
       - name: Final proof scan
-        if: ${{ inputs.remediate || inputs.rescan_only }}
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && (inputs.remediate || inputs.rescan_only) }}
         shell: bash
         run: |
           set -euo pipefail
@@ -318,7 +346,7 @@ jobs:
             "${extra_args[@]}"
 
       - name: Push remediation branch
-        if: ${{ inputs.remediate && !inputs.rescan_only }}
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate && !inputs.rescan_only }}
         shell: bash
         run: |
           set -euo pipefail
@@ -332,7 +360,7 @@ jobs:
 
       - name: Open remediation PR
         id: open-remediation-pr
-        if: ${{ inputs.remediate && !inputs.rescan_only && inputs.create_pr && env.REACHABLE_BRANCH_PUSHED == 'true' }}
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate && !inputs.rescan_only && inputs.create_pr && env.REACHABLE_BRANCH_PUSHED == 'true' }}
         uses: sthenos-security/reach-ci-github/actions/open-remediation-pr@v1
         with:
           branch: ${{ env.REACHABLE_REMEDIATION_BRANCH }}
