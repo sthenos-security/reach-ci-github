@@ -184,6 +184,7 @@ def validate_shared_helper_contract() -> None:
         "reachctl copilot dispatch",
         ".reachable/ci-artifacts/copilot-doctor.json",
         ".reachable/ci-artifacts/copilot-dispatch.json",
+        "issues: write",
         "env.REACHABLE_AI_MODE != 'copilot-github'",
         "env.REACHABLE_AI_MODE == 'copilot-github'",
         "--require-copilot-tasks",

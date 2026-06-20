@@ -37,6 +37,7 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn("REACHABLE_REQUIRE_COPILOT_TASKS=true", text)
             self.assertIn("env.REACHABLE_AI_MODE != 'copilot-github'", text)
             self.assertIn("env.REACHABLE_AI_MODE == 'copilot-github'", text)
+        self.assertIn("issues: write", WORKFLOW)
         self.assertNotIn("npm install -g @github/copilot", WORKFLOW)
         self.assertNotIn("npm install -g @github/copilot", ROOT_ACTION)
 
