@@ -113,6 +113,10 @@ inputs:
     description: Read-only GitHub token for richer source and package context.
     required: false
     default: ""
+  reachable_copilot_user_token:
+    description: GitHub user or app user-to-server token for Copilot issue/task dispatch when ai_mode=copilot-github.
+    required: false
+    default: ""
 
 outputs:
   remediation-branch:
@@ -172,6 +176,7 @@ runs:
         REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
         REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
         REACHABLE_TARGET_BRANCH_INPUT: ${{ inputs.target_branch }}
+        REACHABLE_COPILOT_USER_TOKEN: ${{ inputs.reachable_copilot_user_token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
       run: |
@@ -266,7 +271,7 @@ runs:
         fi
         echo "REACHABLE_TARGET_BRANCH=${normalized_target_branch}" >> "$GITHUB_ENV"
 
-        normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude)"
+        normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude copilot-github)"
         if [ "$normalized_mode" = "openai-gpt" ] && [ "$normalized_remediate" = "true" ]; then
           echo "ai_mode=openai-gpt is scan-only. Use openai-codex for remediation, or set remediate=false." >&2
           exit 2
@@ -296,6 +301,14 @@ runs:
               exit 2
             fi
             ;;
+          copilot-github)
+            echo "REACHABLE_AI_MODE=copilot-github" >> "$GITHUB_ENV"
+            echo "REACHABLE_AGENT=copilot" >> "$GITHUB_ENV"
+            if [ "$normalized_scan_mode" = "real" ] && [ "$normalized_require_ai" = "true" ] && [ "$normalized_remediate" = "true" ] && [ -z "${REACHABLE_COPILOT_USER_TOKEN:-}" ]; then
+              echo "ai_mode=copilot-github requires REACHABLE_COPILOT_USER_TOKEN for dispatch." >&2
+              exit 2
+            fi
+            ;;
         esac
         echo "Reachable AI mode resolved: ${normalized_mode}"
         echo "Reachable scan mode resolved: ${normalized_scan_mode}"
@@ -307,6 +320,7 @@ runs:
         echo "REACHABLE_DIST_REPO=${{ inputs.reachable_dist_repo }}" >> "$GITHUB_ENV"
         echo "REACHABLE_API_KEY=${{ inputs.reachable_api_key }}" >> "$GITHUB_ENV"
         echo "REACHABLE_GITHUB_TOKEN=${{ inputs.reachable_github_token }}" >> "$GITHUB_ENV"
+        echo "REACHABLE_COPILOT_USER_TOKEN=${{ inputs.reachable_copilot_user_token }}" >> "$GITHUB_ENV"
         echo "MCP_GITHUB_TOKEN=${{ inputs.mcp_github_token }}" >> "$GITHUB_ENV"
         echo "OPENAI_API_KEY=${{ inputs.openai_api_key }}" >> "$GITHUB_ENV"
         echo "ANTHROPIC_API_KEY=${{ inputs.anthropic_api_key }}" >> "$GITHUB_ENV"
@@ -363,7 +377,7 @@ runs:
           "${extra_args[@]}"
 
     - name: Create remediation branch
-      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -377,7 +391,7 @@ runs:
         echo "Reachable remediation branch: $branch"
 
     - name: Install selected coding agent
-      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -396,11 +410,35 @@ runs:
         esac
 
     - name: Remediate and verify
-      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
       uses: ./actions/remediation-core
 
+    - name: Dispatch Copilot remediation tasks
+      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE == 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p .reachable/ci-artifacts
+        repo_db="$(python -c 'from reachable.ci.proof_page import find_latest_repo_db; print(find_latest_repo_db())')"
+        echo "REACHABLE_REPO_DB=${repo_db}" >> "$GITHUB_ENV"
+        echo "REACHABLE_REQUIRE_COPILOT_TASKS=false" >> "$GITHUB_ENV"
+        reachctl copilot doctor --repo "${GITHUB_REPOSITORY}" --json > .reachable/ci-artifacts/copilot-doctor.json
+        reachctl copilot dispatch \
+          --repo-db "$repo_db" \
+          --repo "${GITHUB_REPOSITORY}" \
+          --mode exploit-positive \
+          --max-tasks "${REACHABLE_MAX_BATCHES}" \
+          --base-ref "${REACHABLE_TARGET_BRANCH}" \
+          --json > .reachable/ci-artifacts/copilot-dispatch.json
+        task_count="$(python -c 'import json; from pathlib import Path; payload = json.loads(Path(".reachable/ci-artifacts/copilot-dispatch.json").read_text(encoding="utf-8")); print(len(payload.get("tasks") or []))')"
+        echo "REACHABLE_COPILOT_TASK_COUNT=${task_count}" >> "$GITHUB_ENV"
+        if [ "$task_count" -gt 0 ]; then
+          echo "REACHABLE_REQUIRE_COPILOT_TASKS=true" >> "$GITHUB_ENV"
+        fi
+        echo "Dispatched ${task_count} Copilot remediation task(s)."
+
     - name: Final proof scan
-      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && (inputs.remediate == 'true' || inputs.rescan_only == 'true') }}
+      if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && (inputs.remediate == 'true' || inputs.rescan_only == 'true') }}
       shell: bash
       run: |
         set -euo pipefail
@@ -458,6 +496,10 @@ runs:
         run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
         proof_branch="${REACHABLE_REMEDIATION_BRANCH:-${REACHABLE_TARGET_BRANCH}}"
         proof_commit="${REACHABLE_PROOF_COMMIT:-$(git rev-parse HEAD)}"
+        proof_args=()
+        if [ "${REACHABLE_REQUIRE_COPILOT_TASKS:-false}" = "true" ]; then
+          proof_args+=(--require-copilot-tasks)
+        fi
         python -m reachable.ci.proof_page \
           --output-dir .reachable/ci-artifacts/release-proof \
           --repository "${GITHUB_REPOSITORY}" \
@@ -465,7 +507,8 @@ runs:
           --commit "$proof_commit" \
           --run-url "$run_url" \
           --pull-request-url "${{ steps.open-remediation-pr.outputs.pr-url }}" \
-          --workspace "${GITHUB_WORKSPACE}"
+          --workspace "${GITHUB_WORKSPACE}" \
+          "${proof_args[@]}"
         if ! reachctl export --repo . --format json --output .reachable/ci-artifacts/reachable-report.json; then
           echo "::warning title=Reachable JSON export unavailable::Proof page publication succeeded, but reachable-report.json could not be generated."
         fi
