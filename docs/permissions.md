@@ -42,6 +42,8 @@ Reachable tokens are separate from workflow control:
 | `MCP_GITHUB_TOKEN` | Recommended read-only GitHub source token for MCP GitHub cloning and package git clone fallback. Use a fine-grained PAT with `Contents: Read-only` on the repos Reachable should inspect. |
 | `OPENAI_API_KEY` | Required for the default Codex/OpenAI lane in customer-facing runs. |
 | `ANTHROPIC_API_KEY` | Required for the Claude/Anthropic lane in customer-facing runs. |
+| `REACHABLE_COPILOT_USER_TOKEN` | Required only for `ai_mode=copilot-github`; used to dispatch GitHub Copilot issues/tasks. |
+| `COPILOT_MCP_REACHABLE_TOKEN` | Optional Copilot Agents secret for read-only REACHABLE MCP context. Must be configured in the Copilot Agents secret plane, not only as an Actions secret. |
 
 Create `MCP_GITHUB_TOKEN` at
 <https://github.com/settings/personal-access-tokens/new>. Select the user or
@@ -53,3 +55,7 @@ administration, or secret permissions to this token.
 
 Do not use Reachable scanner tokens to create branches or PRs. That is the
 workflow token's job.
+
+For `ai_mode=copilot-github`, the workflow dispatches async Copilot tasks from
+DB-backed scan evidence and exits. A Copilot PR is not considered fixed until a
+separate REACHABLE verification pass records proof for the linked task.

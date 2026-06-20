@@ -47,9 +47,10 @@ for custom CI/CD integration.
 ## Quick Start
 
 1. Add the repository secrets Reachable needs:
-   `OPENAI_API_KEY` for the default Codex/OpenAI lane, or `ANTHROPIC_API_KEY`
-   for the Claude/Anthropic lane. Add `MCP_GITHUB_TOKEN` when you want GitHub
-   source reads, MCP GitHub cloning, and git clone fallback.
+   `OPENAI_API_KEY` for the default Codex/OpenAI lane, `ANTHROPIC_API_KEY`
+   for the Claude/Anthropic lane, or `REACHABLE_COPILOT_USER_TOKEN` for the
+   async GitHub Copilot dispatch lane. Add `MCP_GITHUB_TOKEN` when you want
+   GitHub source reads, MCP GitHub cloning, and git clone fallback.
 2. Enable the GitHub repository settings listed in
    [Repository Settings](#repository-settings).
 3. Add `.github/workflows/reachable-remediation.yml` using the example below,
@@ -103,6 +104,8 @@ than the branch you want the remediation PR to target.
 
 - AI token: set `OPENAI_API_KEY` for the default Codex/OpenAI lane, or
   `ANTHROPIC_API_KEY` for the Claude/Anthropic lane. This is required.
+- Copilot dispatch token: set `REACHABLE_COPILOT_USER_TOKEN` only for
+  `ai_mode=copilot-github`.
 - MCP GitHub token: set `MCP_GITHUB_TOKEN` as a fine-grained PAT with
   `Contents: Read-only` on the repos Reachable should inspect. This is
   recommended for faster richer clone, source, and package context, and is also
@@ -185,7 +188,7 @@ Recommended production defaults:
 
 | Setting | Recommended Value | Why |
 |---------|-------------------|-----|
-| `ai_mode` | `openai-codex` | Public lane selector. Use `openai-gpt` for OpenAI scan-only, `openai-codex` for OpenAI plus Codex remediation, or `anthropic-claude` for Anthropic plus Claude remediation. |
+| `ai_mode` | `openai-codex` | Public lane selector. Use `openai-gpt` for OpenAI scan-only, `openai-codex` for OpenAI plus Codex remediation, `anthropic-claude` for Anthropic plus Claude remediation, or `copilot-github` for async GitHub Copilot dispatch. |
 | `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
 | `agent_timeout_sec` | `1800` | Per-batch coding-agent timeout. The timer resets for each remediation batch. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
@@ -213,7 +216,7 @@ from reachable.ci.autoremediation import (
 write_github_workflow(
     ".github/workflows/reachable-remediation.yml",
     GitHubAutoRemediationConfig(
-        ai_mode="openai-codex",
+        remediation_mode="codex-openai",
         max_batches=3,
         create_pr=True,
         publish_report=True,
@@ -263,6 +266,54 @@ jobs:
     secrets: inherit
 ```
 
+## GitHub Copilot Dispatch Lane
+
+Use `ai_mode: copilot-github` when you want GitHub Copilot cloud agent to own
+the code edit asynchronously. This lane scans the target branch, dispatches
+bounded Copilot issues/tasks from `repo.db`, publishes sanitized status
+artifacts, and exits. It does not install a local coding agent or mark a fix
+complete. Copilot PRs still require a separate REACHABLE verification pass
+before they should be treated as ready.
+
+```yaml
+name: Reachable Copilot Remediation Dispatch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+  security-events: write
+  pages: write
+  id-token: write
+
+jobs:
+  reachable:
+    uses: sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1
+    with:
+      target_branch: main
+      fail_on: exploitable
+      remediate: true
+      rescan_only: false
+      ai_mode: copilot-github
+      max_batches: 3
+      publish_report: true
+      require_ai: true
+    secrets: inherit
+```
+
+Required setup:
+
+- `REACHABLE_COPILOT_USER_TOKEN` as an Actions secret for GitHub issue/task
+  dispatch.
+- GitHub Copilot cloud agent enabled for the repository and assignable to
+  issues.
+- Optional `COPILOT_MCP_REACHABLE_TOKEN` as a Copilot Agents secret when using
+  the read-only REACHABLE MCP context server.
+
 The same caller is available as a checked-in example at
 [`examples/basic/.github/workflows/reachable-remediation.yml`](examples/basic/.github/workflows/reachable-remediation.yml).
 
@@ -309,7 +360,7 @@ caller workflow.
 | `workflow_name` | `Reachable Auto Remediation` | Workflow `name` | Display name in GitHub Actions. |
 | `reusable_workflow` | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Job `uses` | Must include an explicit ref such as `@v1`. |
 | `target_branch` | `main` | `target_branch` dispatch default | Branch to scan or verify. |
-| `ai_mode` | `openai-codex` | `ai_mode` | Public lane selector: `openai-gpt`, `openai-codex`, or `anthropic-claude`. |
+| SDK `remediation_mode` | `codex-openai` | `ai_mode` | SDK selector. Renders `openai-codex`, `anthropic-claude`, or `copilot-github` for the reusable workflow. |
 | `agent_model` | empty | `agent_model` | Optional remediation-model override passed through to the selected coding agent. Leave unset for the pinned defaults. |
 | `agent_timeout_sec` | `1800` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. The timer resets on every batch. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
@@ -330,6 +381,7 @@ caller workflow.
 |--------|---------------|---------|
 | `OPENAI_API_KEY` | `ai_mode=openai-gpt` or `ai_mode=openai-codex` | Used by Reachable AI analysis and, for `openai-codex`, the Codex coding-agent lane. |
 | `ANTHROPIC_API_KEY` | `ai_mode=anthropic-claude` | Used by Reachable AI analysis and the Claude Code lane. |
+| `REACHABLE_COPILOT_USER_TOKEN` | `ai_mode=copilot-github` | Used to dispatch bounded GitHub Copilot cloud-agent issues/tasks. |
 
 Set these in GitHub:
 
@@ -390,7 +442,7 @@ workflow calls this reusable workflow.
 | `target_branch` | `main` | Branch to scan, or branch to verify when `rescan_only=true`. |
 | `remediate` | `true` | Kill switch for code-writing remediation. |
 | `rescan_only` | `false` | Verify an existing branch without editing code. |
-| `ai_mode` | `openai-codex` | Selects the scan/provider and remediation-agent lane. |
+| `ai_mode` | `openai-codex` | Selects the scan/provider, remediation-agent lane, or async `copilot-github` dispatch lane. |
 | `agent_timeout_sec` | `1800` | Per-batch timeout for the selected coding agent. The timeout resets on every remediation batch. |
 | `prompt_profile` | `balanced` | Bundling profile passed to Reachable. |
 | `signal_types` | `all` | Signal families to include in the remediation bundle. |
@@ -415,7 +467,7 @@ of setting these directly.
 | `REACHABLE_DIST_REPO` | `reachable_dist_repo` | Installer source repository. |
 | `REACHABLE_REMEDIATE_ENABLED` | `remediate` | Enables code-writing remediation. |
 | `REACHABLE_RESCAN_ONLY` | `rescan_only` | Verifies an existing branch without editing. |
-| `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, or `anthropic-claude`. |
+| `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, `anthropic-claude`, or `copilot-github`. |
 | `REACHABLE_AGENT_TIMEOUT_SEC` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. |
 | `REACHABLE_PROMPT_PROFILE` | `prompt_profile` | Passed to `reachctl remediate`. |
 | `REACHABLE_SIGNAL_TYPES` | `signal_types` | Selects signal families for the bundle. |
@@ -428,8 +480,9 @@ of setting these directly.
 | `REACHABLE_PUBLISH_REPORT` | `publish_report` | Controls proof artifact publication. |
 | `REACHABLE_REQUIRE_AI` | `require_ai` | Credential preflight behavior. |
 | `REACHABLE_FRESH_SCAN` | `fresh_scan` | Cache deletion behavior. |
-| `REACHABLE_AGENT` | resolved from `ai_mode` | `codex` or `claude` for remediation-capable lanes. |
-| `REACHABLE_LLM_PROVIDER` | resolved from `ai_mode` | `openai` or `claude` for Reachable scan AI. |
+| `REACHABLE_AGENT` | resolved from `ai_mode` | `codex` or `claude` for synchronous remediation lanes; `copilot` for async dispatch. |
+| `REACHABLE_LLM_PROVIDER` | resolved from `ai_mode` | `openai` or `claude` for Reachable scan AI. Empty for `copilot-github`. |
+| `REACHABLE_COPILOT_TASK_COUNT` | generated by workflow | Number of Copilot tasks dispatched from `repo.db`. |
 | `REACHABLE_REMEDIATION_BRANCH` | generated by workflow | Branch name for agent edits and proof scan. |
 | `REACHABLE_BRANCH_PUSHED` | generated by workflow | Guards PR creation. |
 | `REACHABLE_PROOF_COMMIT` | generated by workflow | Commit shown in the proof page. |
@@ -551,6 +604,7 @@ Expected result:
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
 | `ai_mode=openai-codex requires OPENAI_API_KEY` | Missing provider secret. | Add `OPENAI_API_KEY` to repository or organization Actions secrets. |
+| `ai_mode=copilot-github requires REACHABLE_COPILOT_USER_TOKEN` | Missing Copilot dispatch token. | Add `REACHABLE_COPILOT_USER_TOKEN` as a repository or organization Actions secret. |
 | PR branch pushed but no PR opened | GitHub Actions cannot create PRs. | Enable "Allow GitHub Actions to create and approve pull requests" and `pull-requests: write`. |
 | Proof page reports blockers after remediation | The agent fixed only part of the queue or a finding needs manual review. | Review the branch and proof summary; rerun with more batches only if the remaining item is safe to automate. |
 | Project tests did not run inside Reachable | The reusable workflow does not execute project test commands. | Use the remediation prompt, local release harnesses, and the application's normal CI/branch protection for language-specific validation. |

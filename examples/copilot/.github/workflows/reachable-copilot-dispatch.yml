@@ -1,13 +1,14 @@
-name: Reachable Auto Remediation
+name: Reachable Copilot Remediation Dispatch
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  actions: read
+  contents: read
+  issues: write
   pull-requests: write
   security-events: write
-  actions: write
   pages: write
   id-token: write
 
@@ -19,8 +20,8 @@ jobs:
       fail_on: exploitable
       remediate: true
       rescan_only: false
-      ai_mode: openai-codex
+      ai_mode: copilot-github
       max_batches: 3
-      rescan_strategy: each_batch
-      create_pr: true
+      publish_report: true
+      require_ai: true
     secrets: inherit

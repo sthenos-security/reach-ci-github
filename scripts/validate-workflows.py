@@ -177,8 +177,16 @@ def validate_shared_helper_contract() -> None:
     if "python -m reachable.ci.proof_page" not in workflow:
         raise AssertionError("workflow must render the standardized reachable.ci proof/status page")
     for expected in (
-        "normalized_mode=\"$(normalize_choice ai_mode \"${REACHABLE_AI_MODE}\" openai-codex openai-gpt anthropic-claude)\"",
+        "normalized_mode=\"$(normalize_choice ai_mode \"${REACHABLE_AI_MODE}\" openai-codex openai-gpt anthropic-claude copilot-github)\"",
         "ai_mode=openai-gpt is scan-only",
+        "ai_mode=copilot-github requires REACHABLE_COPILOT_USER_TOKEN for dispatch.",
+        "reachctl copilot doctor --repo",
+        "reachctl copilot dispatch",
+        ".reachable/ci-artifacts/copilot-doctor.json",
+        ".reachable/ci-artifacts/copilot-dispatch.json",
+        "env.REACHABLE_AI_MODE != 'copilot-github'",
+        "env.REACHABLE_AI_MODE == 'copilot-github'",
+        "--require-copilot-tasks",
         "REACHABLE_PROOF_FAIL_ON",
         "if [ -z \"${REACHABLE_AGENT_MODEL:-}\" ]; then",
         "REACHABLE_AGENT_TIMEOUT_SEC",
@@ -207,6 +215,8 @@ def validate_shared_helper_contract() -> None:
         "upload_artifacts",
         "openai_api_key",
         "anthropic_api_key",
+        "reachable_copilot_user_token",
+        "reachctl copilot dispatch",
         "Reachable CI Action requires a checked-out repository.",
         "Reachable Python package is unavailable; skipping report publication.",
         "actions/upload-artifact@v5",

@@ -14,17 +14,31 @@ REMEDIATION_CORE = (ROOT / "scripts" / "remediation-core.sh").read_text(encoding
 
 class WorkflowContractTests(unittest.TestCase):
     def test_mode_aliases_and_model_override_are_supported(self) -> None:
-        self.assertIn("openai-codex openai-gpt anthropic-claude", WORKFLOW)
+        self.assertIn("openai-codex openai-gpt anthropic-claude copilot-github", WORKFLOW)
         self.assertIn("ai_mode=openai-gpt is scan-only", WORKFLOW)
         self.assertIn("REACHABLE_PROOF_FAIL_ON", WORKFLOW)
         self.assertIn('if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then', WORKFLOW)
         self.assertIn('echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"', WORKFLOW)
         self.assertIn('echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"', WORKFLOW)
         self.assertIn("--sarif .reachable/ci-artifacts/reachable-after-final.sarif", WORKFLOW)
-        self.assertIn("openai-codex openai-gpt anthropic-claude", ROOT_ACTION)
+        self.assertIn("openai-codex openai-gpt anthropic-claude copilot-github", ROOT_ACTION)
         self.assertIn("ai_mode=openai-gpt is scan-only", ROOT_ACTION)
         self.assertIn("openai_api_key", ROOT_ACTION)
         self.assertIn("anthropic_api_key", ROOT_ACTION)
+
+    def test_copilot_lane_dispatches_async_tasks_without_local_agent_execution(self) -> None:
+        for text in (WORKFLOW, ROOT_ACTION):
+            self.assertIn("REACHABLE_COPILOT_USER_TOKEN", text)
+            self.assertIn("ai_mode=copilot-github requires REACHABLE_COPILOT_USER_TOKEN for dispatch.", text)
+            self.assertIn("reachctl copilot doctor --repo", text)
+            self.assertIn("reachctl copilot dispatch", text)
+            self.assertIn(".reachable/ci-artifacts/copilot-doctor.json", text)
+            self.assertIn(".reachable/ci-artifacts/copilot-dispatch.json", text)
+            self.assertIn("REACHABLE_REQUIRE_COPILOT_TASKS=true", text)
+            self.assertIn("env.REACHABLE_AI_MODE != 'copilot-github'", text)
+            self.assertIn("env.REACHABLE_AI_MODE == 'copilot-github'", text)
+        self.assertNotIn("npm install -g @github/copilot", WORKFLOW)
+        self.assertNotIn("npm install -g @github/copilot", ROOT_ACTION)
 
     def test_publish_report_skips_when_reachable_setup_never_happened(self) -> None:
         self.assertIn('if ! command -v reachctl >/dev/null 2>&1; then', WORKFLOW)
@@ -70,6 +84,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("Reachable Python package is unavailable; skipping report publication.", VALIDATOR)
         self.assertIn("Apply the Reachable remediation task provided on stdin", VALIDATOR)
         self.assertIn("ai_mode=openai-gpt is scan-only", VALIDATOR)
+        self.assertIn("copilot-github", VALIDATOR)
         self.assertIn('run_with_timeout \\"$agent_timeout_sec\\"', VALIDATOR)
         self.assertIn("marketplace action contract ok", VALIDATOR)
 
