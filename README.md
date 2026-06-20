@@ -1,7 +1,7 @@
 # Reachable CI for GitHub
 
-Reusable GitHub Actions integration for REACHABLE risk exposure reduction and
-reviewable auto-remediation.
+Reusable GitHub Actions integration for REACHABLE code exploitability analysis
+and risk posture reduction.
 
 This repository is the customer-facing GitHub CI toolkit. Application
 repositories should call the reusable workflow here, or generate that caller
@@ -24,17 +24,25 @@ The goal is simple: set a small number of variables/secrets, run a workflow, and
 receive structured proof artifacts plus an optional remediation branch and PR
 for human review.
 
-Canonical docs:
+Canonical docs and entry points:
 - Site: <https://sthenosec.com/>
 - Primer: <https://sthenosec.com/docs/primer>
 - Auto-remediation overview: <https://sthenosec.com/resources/auto-remediation>
+- GitHub Marketplace action: <https://github.com/marketplace/actions/reachable-security-scan-and-remediation>
+- GitLab Catalog component: <https://gitlab.com/explore/catalog/sthenos-security-public/reach-testbed-gitlab-catalog>
 
-Related public GitHub surfaces:
+Related public CI/CD surfaces:
 
 | Repo | Role |
 |---|---|
-| [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | GitHub Marketplace distribution surface plus the configurable root action. |
+| [`Reachable Security Scan and Remediation`](https://github.com/marketplace/actions/reachable-security-scan-and-remediation) | GitHub Marketplace action for customer installation. |
+| [`reachable` GitLab Catalog component](https://gitlab.com/explore/catalog/sthenos-security-public/reach-testbed-gitlab-catalog) | GitLab Catalog component for customer installation. |
+| [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | GitHub Marketplace distribution repo plus the configurable root action. |
 | [`reach-testbed-github-go`](https://github.com/sthenos-security/reach-testbed-github-go) | Public GitHub demo repo for full remediation and scan-only runs with remediation disabled. |
+| [`reach-testbed-gitlab-go`](https://gitlab.com/sthenos-security-public/reach-testbed-gitlab-go) | Public GitLab demo repo for full remediation and scan-only runs with remediation disabled. |
+
+Contact [Sthenos Security](mailto:info@sthenosec.com?subject=Custom%20CI%2FCD%20integration)
+for custom CI/CD integration.
 
 ## Quick Start
 
@@ -52,7 +60,7 @@ Related public GitHub surfaces:
 ## Toolkit Action
 
 If you want the GitHub Marketplace install surface, use
-[`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace).
+[`Reachable Security Scan and Remediation`](https://github.com/marketplace/actions/reachable-security-scan-and-remediation).
 Use the root action here when you want the toolkit directly without the
 Marketplace shim. The caller workflow still needs normal GitHub job
 permissions and a checkout step.

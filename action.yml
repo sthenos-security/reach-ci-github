@@ -1,5 +1,5 @@
 name: Reachable CI Auto Remediation
-description: Customer-facing GitHub Action entrypoint for REACHABLE scan, bounded remediation, proof artifacts, and optional PR publication.
+description: Code exploitability analysis and risk posture reduction for GitHub Actions.
 branding:
   icon: shield
   color: red
