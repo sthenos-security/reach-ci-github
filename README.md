@@ -14,8 +14,8 @@ This repository also exposes a root action entrypoint:
 uses: sthenos-security/reach-ci-github@v1
 ```
 
-That root `action.yml` is the toolkit action contract used directly by
-advanced callers and by the dedicated Marketplace repo. The reusable workflow at
+That root `action.yml` is the toolkit and Marketplace action contract used
+directly by advanced callers. The reusable workflow at
 [`/.github/workflows/auto-remediate.yml`](.github/workflows/auto-remediate.yml)
 remains the richer orchestration surface for customers who prefer a reusable
 workflow contract.
@@ -37,7 +37,8 @@ Related public CI/CD surfaces:
 |---|---|
 | [`Reachable Security Scan and Remediation`](https://github.com/marketplace/actions/reachable-security-scan-and-remediation) | GitHub Marketplace action for customer installation. |
 | [`reachable` GitLab Catalog component](https://gitlab.com/explore/catalog/sthenos-security-public/reach-testbed-gitlab-catalog) | GitLab Catalog component for customer installation. |
-| [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | GitHub Marketplace distribution repo plus the configurable root action. |
+| [`reach-ci-github`](https://github.com/sthenos-security/reach-ci-github) | GitHub CI toolkit and Marketplace action package. |
+| [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | Marketplace-facing demo repo that consumes the GitHub toolkit. |
 | [`reach-testbed-github-go`](https://github.com/sthenos-security/reach-testbed-github-go) | Public GitHub demo repo for full remediation and scan-only runs with remediation disabled. |
 | [`reach-testbed-gitlab-go`](https://gitlab.com/sthenos-security-public/reach-testbed-gitlab-go) | Public GitLab demo repo for full remediation and scan-only runs with remediation disabled. |
 
@@ -196,12 +197,11 @@ Recommended production defaults:
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
 | `publish_report` | `true` | Gives reviewers a stable proof artifact when Reachable setup succeeded; otherwise the workflow skips report rendering instead of failing late. |
 | `fresh_scan` | `false` | Faster normal CI; use `true` for release smoke tests. |
-The dedicated GitHub marketplace remediation demo follows the same customer
-path, uses latest-by-default Reachable installation, `fresh_scan=true`, and
-`max_batches=1` so the release smoke can
-prove install, scan, remediation handoff, branch push, proof scan, and PR wiring
-quickly. A production repository should increase batches only when it wants the
-workflow to address a larger queue in one run.
+GitHub demo repositories consume this toolkit through the same customer path.
+They use latest-by-default Reachable installation, `fresh_scan=true`, and
+`max_batches=1` when proving install, scan, remediation handoff, branch push,
+proof scan, and PR wiring quickly. A production repository should increase
+batches only when it wants the workflow to address a larger queue in one run.
 
 ## SDK Usage
 
@@ -229,7 +229,8 @@ prompt asks the selected coding agent to run appropriate lint/build/test checks
 when the repository exposes them, while the application repository's own CI and
 branch protection remain the enforcement point. Reachable release harnesses may
 run language-specific checks such as `go test ./...` against generated demo
-branches as separate proof, outside this reusable workflow.
+branches as separate proof, outside this reusable workflow. Do not use this
+toolkit repository itself as the application test target.
 
 ## Minimal Workflow
 
@@ -491,12 +492,12 @@ of setting these directly.
 
 ### Demo Wrapper Values
 
-The dedicated GitHub marketplace remediation demo uses the same public
-SDK/reusable workflow path and keeps the demo-specific controls explicit.
+GitHub demo repositories use the same public SDK/reusable workflow path and keep
+demo-specific controls explicit.
 
 | Demo setting | Value | Why |
 |--------------|-------|-----|
-| Caller workflow | `reach-testbed-github-marketplace/.github/workflows/reachable-remediate.yml` | Small wrapper generated from the SDK shape. |
+| Caller workflow | `reach-testbed-github-go/.github/workflows/reachable-remediate*.yml` or a Marketplace demo wrapper | Small wrapper generated from the SDK shape. |
 | Reusable workflow | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Public customer-facing integration package. |
 | `reachable_dist_repo` | `sthenos-security/reach-dist` | Pulls the public release installer and wheels. |
 | `ai_mode` | `openai-codex` | Exercises the default Codex lane. |
