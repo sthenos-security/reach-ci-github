@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ROOT_ACTION = ROOT / "action.yml"
 PRIVATE_PATTERNS = (
     ".reachable/remediation-bundle/**",
     ".reachable/remediation-bundle",
@@ -119,8 +120,33 @@ def validate_reusable_workflow_contract() -> None:
     print("reusable workflow contract ok")
 
 
+def validate_marketplace_action_contract() -> None:
+    action = _load_yaml(ROOT_ACTION)
+    text = ROOT_ACTION.read_text(encoding="utf-8")
+    if action is None:
+        for expected in ("branding:", "runs:", "using: composite", "publish_pages", "openai_api_key"):
+            if expected not in text:
+                raise AssertionError(f"root action is missing marketplace metadata: {expected}")
+        print("marketplace action contract ok")
+        return
+    if action.get("name") != "Reachable CI Auto Remediation":
+        raise AssertionError("root action must expose the customer-facing marketplace name")
+    branding = action.get("branding") or {}
+    if branding.get("icon") != "shield" or branding.get("color") != "red":
+        raise AssertionError("root action must publish stable marketplace branding")
+    runs = action.get("runs") or {}
+    if runs.get("using") != "composite":
+        raise AssertionError("root action must be a composite action")
+    inputs = action.get("inputs") or {}
+    for key in ("ai_mode", "openai_api_key", "anthropic_api_key", "publish_pages", "upload_artifacts"):
+        if key not in inputs:
+            raise AssertionError(f"root action is missing required marketplace input {key}")
+    print("marketplace action contract ok")
+
+
 def validate_shared_helper_contract() -> None:
     workflow = (ROOT / ".github" / "workflows" / "auto-remediate.yml").read_text(encoding="utf-8")
+    root_action = ROOT_ACTION.read_text(encoding="utf-8")
     action_text = "\n".join(
         path.read_text(encoding="utf-8")
         for path in sorted((ROOT / "actions").rglob("*.yml"))
@@ -134,9 +160,9 @@ def validate_shared_helper_contract() -> None:
         )
     )
     remediation_action = (ROOT / "actions" / "remediation-core" / "action.yml").read_text(encoding="utf-8")
-    if "reach-testbed" in workflow or "reach-testbed" in action_text:
+    if "reach-testbed" in workflow or "reach-testbed" in action_text or "reach-testbed" in root_action:
         raise AssertionError("workflow/actions must not wrap testbed-specific scripts")
-    combined_text = "\n".join((workflow, action_text, helper_text, remediation_action))
+    combined_text = "\n".join((workflow, root_action, action_text, helper_text, remediation_action))
     for forbidden in (
         "REACHABLE_RUN_PROJECT_TESTS",
         "REACHABLE_TEST_PRESET",
@@ -172,6 +198,24 @@ def validate_shared_helper_contract() -> None:
     ):
         if expected not in workflow:
             raise AssertionError(f"workflow is missing standardized report output: {expected}")
+    for expected in (
+        "name: Reachable CI Auto Remediation",
+        "uses: ./actions/setup-reachable",
+        "uses: ./actions/remediation-core",
+        "uses: ./actions/open-remediation-pr",
+        "publish_pages",
+        "upload_artifacts",
+        "openai_api_key",
+        "anthropic_api_key",
+        "Reachable CI Action requires a checked-out repository.",
+        "Reachable Python package is unavailable; skipping report publication.",
+        "actions/upload-artifact@v5",
+        "actions/configure-pages@v6",
+        "actions/upload-pages-artifact@v5",
+        "actions/deploy-pages@v5",
+    ):
+        if expected not in root_action:
+            raise AssertionError(f"root marketplace action is missing required contract text: {expected}")
     for expected in (
         "chmod +x \"$toolkit_root/scripts/run-agent.sh\" \"$toolkit_root/scripts/remediation-core.sh\"",
         "export REACHABLE_AGENT_RUNNER=\"$toolkit_root/scripts/run-agent.sh\"",
@@ -228,6 +272,7 @@ def main() -> None:
     validate_yaml_files()
     validate_no_private_artifact_uploads()
     validate_reusable_workflow_contract()
+    validate_marketplace_action_contract()
     validate_shared_helper_contract()
 
 

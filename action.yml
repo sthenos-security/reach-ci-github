@@ -1,0 +1,483 @@
+name: Reachable CI Auto Remediation
+description: Customer-facing GitHub Action entrypoint for REACHABLE scan, bounded remediation, proof artifacts, and optional PR publication.
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  target_branch:
+    description: Branch to report as the baseline/proof branch. Defaults to the current checkout branch when omitted.
+    required: false
+    default: ""
+  remediate:
+    description: Run code-changing remediation instead of a read-only proof scan.
+    required: false
+    default: "true"
+  rescan_only:
+    description: Skip editing and run only the proof scan on the current checkout.
+    required: false
+    default: "false"
+  ai_mode:
+    description: Public AI lane selector.
+    required: false
+    default: openai-codex
+  agent_model:
+    description: Optional explicit remediation model override.
+    required: false
+    default: ""
+  agent_timeout_sec:
+    description: Per-batch coding-agent timeout in seconds.
+    required: false
+    default: "1800"
+  prompt_profile:
+    description: Reachable remediation prompt profile.
+    required: false
+    default: balanced
+  signal_types:
+    description: Comma-separated signal families, or all.
+    required: false
+    default: all
+  max_batches:
+    description: Maximum remediation batches to attempt.
+    required: false
+    default: "3"
+  rescan_strategy:
+    description: Rescan after each batch or only once at the end.
+    required: false
+    default: each_batch
+  fail_on:
+    description: Customer-facing verdict threshold.
+    required: false
+    default: exploitable
+  proof_fail_on:
+    description: Optional explicit proof-scan threshold. Defaults to fail_on when empty.
+    required: false
+    default: ""
+  scan_extra_flags:
+    description: Extra reachctl scan flags to append.
+    required: false
+    default: ""
+  create_pr:
+    description: Open a remediation PR when a branch is pushed successfully.
+    required: false
+    default: "true"
+  publish_report:
+    description: Render the standardized Reachable proof page and exports.
+    required: false
+    default: "true"
+  upload_artifacts:
+    description: Upload .reachable/ci-artifacts as a workflow artifact.
+    required: false
+    default: "true"
+  publish_pages:
+    description: Publish the rendered proof page to GitHub Pages when report output exists.
+    required: false
+    default: "false"
+  artifact_name:
+    description: Artifact name used when upload_artifacts=true.
+    required: false
+    default: reachable-ci-artifacts
+  require_ai:
+    description: Fail early when the selected lane is missing its required AI key.
+    required: false
+    default: "true"
+  fresh_scan:
+    description: Delete ~/.reachable before installation.
+    required: false
+    default: "false"
+  reachable_dist_repo:
+    description: Distribution repository containing install.sh.
+    required: false
+    default: sthenos-security/reach-dist
+  openai_api_key:
+    description: OpenAI key used for openai-gpt or openai-codex lanes.
+    required: false
+    default: ""
+  anthropic_api_key:
+    description: Anthropic key used for anthropic-claude lane.
+    required: false
+    default: ""
+  reachable_api_key:
+    description: Optional Reachable paid-plan token.
+    required: false
+    default: ""
+  reachable_github_token:
+    description: Optional Reachable GitHub token consumed by Reachable internals.
+    required: false
+    default: ""
+  mcp_github_token:
+    description: Read-only GitHub token for richer source and package context.
+    required: false
+    default: ""
+
+outputs:
+  remediation-branch:
+    description: Remediation branch name when a branch lane ran.
+    value: ${{ steps.finalize.outputs.remediation-branch }}
+  remediation-committed:
+    description: Whether the remediation core produced a commit.
+    value: ${{ steps.finalize.outputs.remediation-committed }}
+  proof-commit:
+    description: Commit used for the final proof page.
+    value: ${{ steps.finalize.outputs.proof-commit }}
+  pr-url:
+    description: Remediation pull request URL when one was opened.
+    value: ${{ steps.finalize.outputs.pr-url }}
+  pr-created:
+    description: Whether a remediation PR was opened automatically.
+    value: ${{ steps.finalize.outputs.pr-created }}
+  page-url:
+    description: GitHub Pages URL when publish_pages=true and deployment succeeded.
+    value: ${{ steps.finalize.outputs.page-url }}
+  artifacts-path:
+    description: Artifact directory containing Reachable report outputs.
+    value: ${{ steps.finalize.outputs.artifacts-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Ensure workspace checkout
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+          echo "Reachable CI Action requires a checked-out repository. Run actions/checkout before this action." >&2
+          exit 2
+        fi
+
+    - name: Validate Reachable inputs
+      shell: bash
+      env:
+        REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
+        REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
+        REACHABLE_AI_MODE: ${{ inputs.ai_mode }}
+        REACHABLE_AGENT_MODEL: ${{ inputs.agent_model }}
+        REACHABLE_AGENT_TIMEOUT_SEC: ${{ inputs.agent_timeout_sec }}
+        REACHABLE_PROMPT_PROFILE: ${{ inputs.prompt_profile }}
+        REACHABLE_SIGNAL_TYPES: ${{ inputs.signal_types }}
+        REACHABLE_MAX_BATCHES: ${{ inputs.max_batches }}
+        REACHABLE_RESCAN_STRATEGY: ${{ inputs.rescan_strategy }}
+        REACHABLE_FAIL_ON: ${{ inputs.fail_on }}
+        REACHABLE_PROOF_FAIL_ON: ${{ inputs.proof_fail_on }}
+        REACHABLE_SCAN_EXTRA_FLAGS: ${{ inputs.scan_extra_flags }}
+        REACHABLE_CREATE_PR: ${{ inputs.create_pr }}
+        REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
+        REACHABLE_UPLOAD_ARTIFACTS: ${{ inputs.upload_artifacts }}
+        REACHABLE_PUBLISH_PAGES: ${{ inputs.publish_pages }}
+        REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
+        REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
+        REACHABLE_TARGET_BRANCH_INPUT: ${{ inputs.target_branch }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+      run: |
+        set -euo pipefail
+        normalize_token() {
+          printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\r\n[:space:]' | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+        }
+        normalize_bool() {
+          local name="$1"
+          local value
+          value="$(normalize_token "$2")"
+          case "$value" in
+            true|false) printf '%s\n' "$value" ;;
+            *) echo "${name} must be true or false; got '$2'." >&2; return 2 ;;
+          esac
+        }
+        normalize_positive_int() {
+          local name="$1"
+          local value
+          value="$(normalize_token "$2")"
+          if ! printf '%s' "$value" | grep -Eq '^[0-9]+$' || [ "${value:-0}" -lt 1 ]; then
+            echo "${name} must be a positive integer; got '$2'." >&2
+            return 2
+          fi
+          printf '%s\n' "$value"
+        }
+        normalize_fail_on() {
+          local value
+          value="$(normalize_token "$1")"
+          case "$value" in
+            critical|high|medium|any|reachable|exploitable|none) printf '%s\n' "$value" ;;
+            *) echo "fail_on must be critical, high, medium, any, reachable, exploitable, or none; got '$1'." >&2; return 2 ;;
+          esac
+        }
+        normalize_choice() {
+          local name="$1"
+          local value="$2"
+          shift 2
+          value="$(normalize_token "$value")"
+          for choice in "$@"; do
+            if [ "$value" = "$choice" ]; then
+              printf '%s\n' "$value"
+              return 0
+            fi
+          done
+          echo "${name} has unsupported value '$2'." >&2
+          return 2
+        }
+
+        normalized_remediate="$(normalize_bool remediate "${REACHABLE_REMEDIATE_ENABLED}")"
+        normalized_rescan_only="$(normalize_bool rescan_only "${REACHABLE_RESCAN_ONLY}")"
+        normalized_create_pr="$(normalize_bool create_pr "${REACHABLE_CREATE_PR}")"
+        normalized_publish_report="$(normalize_bool publish_report "${REACHABLE_PUBLISH_REPORT}")"
+        normalized_upload_artifacts="$(normalize_bool upload_artifacts "${REACHABLE_UPLOAD_ARTIFACTS}")"
+        normalized_publish_pages="$(normalize_bool publish_pages "${REACHABLE_PUBLISH_PAGES}")"
+        normalized_require_ai="$(normalize_bool require_ai "${REACHABLE_REQUIRE_AI}")"
+        normalized_fresh_scan="$(normalize_bool fresh_scan "${REACHABLE_FRESH_SCAN}")"
+        echo "REACHABLE_REMEDIATE_ENABLED=${normalized_remediate}" >> "$GITHUB_ENV"
+        echo "REACHABLE_RESCAN_ONLY=${normalized_rescan_only}" >> "$GITHUB_ENV"
+        echo "REACHABLE_CREATE_PR=${normalized_create_pr}" >> "$GITHUB_ENV"
+        echo "REACHABLE_PUBLISH_REPORT=${normalized_publish_report}" >> "$GITHUB_ENV"
+        echo "REACHABLE_UPLOAD_ARTIFACTS=${normalized_upload_artifacts}" >> "$GITHUB_ENV"
+        echo "REACHABLE_PUBLISH_PAGES=${normalized_publish_pages}" >> "$GITHUB_ENV"
+        echo "REACHABLE_REQUIRE_AI=${normalized_require_ai}" >> "$GITHUB_ENV"
+        echo "REACHABLE_FRESH_SCAN=${normalized_fresh_scan}" >> "$GITHUB_ENV"
+        normalized_timeout="$(normalize_positive_int agent_timeout_sec "${REACHABLE_AGENT_TIMEOUT_SEC}")"
+        normalized_batches="$(normalize_positive_int max_batches "${REACHABLE_MAX_BATCHES}")"
+        if [ "$normalized_batches" -gt 10 ]; then
+          echo "max_batches must be between 1 and 10; got '${REACHABLE_MAX_BATCHES}'." >&2
+          exit 2
+        fi
+        echo "REACHABLE_AGENT_TIMEOUT_SEC=${normalized_timeout}" >> "$GITHUB_ENV"
+        echo "REACHABLE_MAX_BATCHES=${normalized_batches}" >> "$GITHUB_ENV"
+        echo "REACHABLE_RESCAN_STRATEGY=$(normalize_choice rescan_strategy "${REACHABLE_RESCAN_STRATEGY}" each_batch final_only)" >> "$GITHUB_ENV"
+        echo "REACHABLE_PROMPT_PROFILE=$(normalize_choice prompt_profile "${REACHABLE_PROMPT_PROFILE}" aggressive balanced nightly release safe)" >> "$GITHUB_ENV"
+        normalized_fail_on="$(normalize_fail_on "${REACHABLE_FAIL_ON}")"
+        normalized_proof_fail_on="$normalized_fail_on"
+        if [ -n "$(normalize_token "${REACHABLE_PROOF_FAIL_ON}")" ]; then
+          normalized_proof_fail_on="$(normalize_fail_on "${REACHABLE_PROOF_FAIL_ON}")"
+        fi
+        echo "REACHABLE_FAIL_ON=${normalized_fail_on}" >> "$GITHUB_ENV"
+        echo "REACHABLE_PROOF_FAIL_ON=${normalized_proof_fail_on}" >> "$GITHUB_ENV"
+        normalized_target_branch="${REACHABLE_TARGET_BRANCH_INPUT:-}"
+        if [ -z "$normalized_target_branch" ]; then
+          normalized_target_branch="${GITHUB_REF_NAME:-}"
+        fi
+        if [ -z "$normalized_target_branch" ]; then
+          echo "target_branch was empty and GITHUB_REF_NAME is unavailable." >&2
+          exit 2
+        fi
+        echo "REACHABLE_TARGET_BRANCH=${normalized_target_branch}" >> "$GITHUB_ENV"
+
+        normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude)"
+        if [ "$normalized_mode" = "openai-gpt" ] && [ "$normalized_remediate" = "true" ]; then
+          echo "ai_mode=openai-gpt is scan-only. Use openai-codex for remediation, or set remediate=false." >&2
+          exit 2
+        fi
+        case "$normalized_mode" in
+          openai-codex|openai-gpt)
+            echo "REACHABLE_AI_MODE=${normalized_mode}" >> "$GITHUB_ENV"
+            echo "REACHABLE_AGENT=codex" >> "$GITHUB_ENV"
+            echo "REACHABLE_LLM_PROVIDER=openai" >> "$GITHUB_ENV"
+            if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
+              echo "REACHABLE_AGENT_MODEL=gpt-5.4-mini" >> "$GITHUB_ENV"
+            fi
+            if [ "$normalized_require_ai" = "true" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
+              echo "ai_mode=${normalized_mode} requires OPENAI_API_KEY." >&2
+              exit 2
+            fi
+            ;;
+          anthropic-claude)
+            echo "REACHABLE_AI_MODE=anthropic-claude" >> "$GITHUB_ENV"
+            echo "REACHABLE_AGENT=claude" >> "$GITHUB_ENV"
+            echo "REACHABLE_LLM_PROVIDER=claude" >> "$GITHUB_ENV"
+            if [ -z "${REACHABLE_AGENT_MODEL:-}" ]; then
+              echo "REACHABLE_AGENT_MODEL=claude-sonnet-4-5-20250929" >> "$GITHUB_ENV"
+            fi
+            if [ "$normalized_require_ai" = "true" ] && [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+              echo "ai_mode=anthropic-claude requires ANTHROPIC_API_KEY." >&2
+              exit 2
+            fi
+            ;;
+        esac
+        echo "Reachable AI mode resolved: ${normalized_mode}"
+
+    - name: Export Reachable credentials
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "REACHABLE_DIST_REPO=${{ inputs.reachable_dist_repo }}" >> "$GITHUB_ENV"
+        echo "REACHABLE_API_KEY=${{ inputs.reachable_api_key }}" >> "$GITHUB_ENV"
+        echo "REACHABLE_GITHUB_TOKEN=${{ inputs.reachable_github_token }}" >> "$GITHUB_ENV"
+        echo "MCP_GITHUB_TOKEN=${{ inputs.mcp_github_token }}" >> "$GITHUB_ENV"
+        echo "OPENAI_API_KEY=${{ inputs.openai_api_key }}" >> "$GITHUB_ENV"
+        echo "ANTHROPIC_API_KEY=${{ inputs.anthropic_api_key }}" >> "$GITHUB_ENV"
+        echo "GITHUB_TOKEN=${{ github.token }}" >> "$GITHUB_ENV"
+
+    - name: Setup Reachable
+      uses: ./actions/setup-reachable
+      with:
+        dist-repo: ${{ inputs.reachable_dist_repo }}
+        fresh-scan: ${{ inputs.fresh_scan }}
+
+    - name: Baseline scan
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p .reachable/ci-artifacts
+        provider_args=()
+        if [ -n "${REACHABLE_LLM_PROVIDER:-}" ]; then
+          provider_args+=(--ai-provider "$REACHABLE_LLM_PROVIDER")
+        fi
+        # shellcheck disable=SC2206
+        extra_args=(${REACHABLE_SCAN_EXTRA_FLAGS})
+        baseline_fail_on="${REACHABLE_FAIL_ON}"
+        if [ "${REACHABLE_REMEDIATE_ENABLED}" = "true" ] || [ "${REACHABLE_RESCAN_ONLY}" = "true" ]; then
+          baseline_fail_on="none"
+        fi
+        reachctl scan . --ci \
+          --fail-on "${baseline_fail_on}" \
+          --branch "${REACHABLE_TARGET_BRANCH}" \
+          --commit "$(git rev-parse HEAD)" \
+          --sarif .reachable/ci-artifacts/reachable.sarif \
+          "${provider_args[@]}" \
+          "${extra_args[@]}"
+
+    - name: Create remediation branch
+      if: ${{ inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        source_commit="$(git rev-parse --short=8 HEAD)"
+        branch_timestamp="$(date -u +%Y%m%d-%H%M%S)"
+        branch="reachable-remediate-${branch_timestamp}-${source_commit}"
+        git config user.name "reachable-remediation-bot"
+        git config user.email "security@sthenos.com"
+        git switch -c "$branch"
+        echo "REACHABLE_REMEDIATION_BRANCH=$branch" >> "$GITHUB_ENV"
+        echo "Reachable remediation branch: $branch"
+
+    - name: Install selected coding agent
+      if: ${{ inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        case "${REACHABLE_AGENT}" in
+          codex)
+            npm install -g @openai/codex
+            printenv OPENAI_API_KEY | codex login --with-api-key
+            ;;
+          claude)
+            npm install -g @anthropic-ai/claude-code
+            ;;
+          *)
+            echo "unsupported coding agent: ${REACHABLE_AGENT}" >&2
+            exit 2
+            ;;
+        esac
+
+    - name: Remediate and verify
+      if: ${{ inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      uses: ./actions/remediation-core
+
+    - name: Final proof scan
+      if: ${{ inputs.remediate == 'true' || inputs.rescan_only == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        branch="${REACHABLE_REMEDIATION_BRANCH:-${REACHABLE_TARGET_BRANCH}}"
+        provider_args=()
+        if [ -n "${REACHABLE_LLM_PROVIDER:-}" ]; then
+          provider_args+=(--ai-provider "$REACHABLE_LLM_PROVIDER")
+        fi
+        # shellcheck disable=SC2206
+        extra_args=(${REACHABLE_SCAN_EXTRA_FLAGS})
+        reachctl scan . --ci \
+          --fail-on "${REACHABLE_PROOF_FAIL_ON}" \
+          --branch "$branch" \
+          --commit "$(git rev-parse HEAD)" \
+          --sarif .reachable/ci-artifacts/reachable-after-final.sarif \
+          "${provider_args[@]}" \
+          "${extra_args[@]}"
+
+    - name: Push remediation branch
+      if: ${{ inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "REACHABLE_BRANCH_PUSHED=false" >> "$GITHUB_ENV"
+        if [ "${REACHABLE_REMEDIATION_COMMITTED:-false}" != "true" ]; then
+          echo "No remediation commit to push."
+          exit 0
+        fi
+        git push origin "${REACHABLE_REMEDIATION_BRANCH}"
+        echo "REACHABLE_BRANCH_PUSHED=true" >> "$GITHUB_ENV"
+
+    - name: Open remediation PR
+      id: open-remediation-pr
+      if: ${{ inputs.remediate == 'true' && inputs.rescan_only != 'true' && inputs.create_pr == 'true' && env.REACHABLE_BRANCH_PUSHED == 'true' }}
+      uses: ./actions/open-remediation-pr
+      with:
+        branch: ${{ env.REACHABLE_REMEDIATION_BRANCH }}
+        base: ${{ env.REACHABLE_TARGET_BRANCH }}
+        title: Reachable remediation proof
+
+    - name: Publish report
+      if: ${{ inputs.publish_report == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p .reachable/ci-artifacts
+        if ! command -v reachctl >/dev/null 2>&1; then
+          echo "Reachable CLI is unavailable; skipping report publication."
+          exit 0
+        fi
+        if ! python -c "import reachable.ci.proof_page" >/dev/null 2>&1; then
+          echo "Reachable Python package is unavailable; skipping report publication."
+          exit 0
+        fi
+        run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+        proof_branch="${REACHABLE_REMEDIATION_BRANCH:-${REACHABLE_TARGET_BRANCH}}"
+        proof_commit="${REACHABLE_PROOF_COMMIT:-$(git rev-parse HEAD)}"
+        python -m reachable.ci.proof_page \
+          --output-dir .reachable/ci-artifacts/release-proof \
+          --repository "${GITHUB_REPOSITORY}" \
+          --branch "$proof_branch" \
+          --commit "$proof_commit" \
+          --run-url "$run_url" \
+          --pull-request-url "${{ steps.open-remediation-pr.outputs.pr-url }}" \
+          --workspace "${GITHUB_WORKSPACE}"
+        if ! reachctl export --repo . --format json --output .reachable/ci-artifacts/reachable-report.json; then
+          echo "::warning title=Reachable JSON export unavailable::Proof page publication succeeded, but reachable-report.json could not be generated."
+        fi
+        if ! reachctl export --repo . --format summary --output .reachable/ci-artifacts/reachable-summary.txt; then
+          echo "::warning title=Reachable summary export unavailable::Proof page publication succeeded, but reachable-summary.txt could not be generated."
+        fi
+
+    - name: Upload Reachable artifacts
+      if: ${{ inputs.upload_artifacts == 'true' }}
+      uses: actions/upload-artifact@v5
+      with:
+        name: ${{ inputs.artifact_name }}
+        if-no-files-found: ignore
+        path: .reachable/ci-artifacts/**
+
+    - name: Configure Pages
+      if: ${{ inputs.publish_pages == 'true' && inputs.publish_report == 'true' && hashFiles('.reachable/ci-artifacts/release-proof/index.html') != '' }}
+      uses: actions/configure-pages@v6
+
+    - name: Upload Pages artifact
+      if: ${{ inputs.publish_pages == 'true' && inputs.publish_report == 'true' && hashFiles('.reachable/ci-artifacts/release-proof/index.html') != '' }}
+      uses: actions/upload-pages-artifact@v5
+      with:
+        path: .reachable/ci-artifacts/release-proof
+
+    - name: Deploy Pages
+      id: deploy-pages
+      if: ${{ inputs.publish_pages == 'true' && inputs.publish_report == 'true' && hashFiles('.reachable/ci-artifacts/release-proof/index.html') != '' }}
+      uses: actions/deploy-pages@v5
+
+    - name: Finalize outputs
+      id: finalize
+      shell: bash
+      run: |
+        set -euo pipefail
+        {
+          echo "remediation-branch=${REACHABLE_REMEDIATION_BRANCH:-}"
+          echo "remediation-committed=${REACHABLE_REMEDIATION_COMMITTED:-false}"
+          echo "proof-commit=${REACHABLE_PROOF_COMMIT:-$(git rev-parse HEAD)}"
+          echo "artifacts-path=.reachable/ci-artifacts"
+          echo "pr-url=${{ steps.open-remediation-pr.outputs.pr-url || '' }}"
+          echo "pr-created=${{ steps.open-remediation-pr.outputs.pr-created || 'false' }}"
+          echo "page-url=${{ steps.deploy-pages.outputs.page_url || '' }}"
+        } >> "$GITHUB_OUTPUT"

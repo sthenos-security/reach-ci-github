@@ -8,6 +8,18 @@ repositories should call the reusable workflow here, or generate that caller
 workflow with the Reachable SDK, instead of copying demo scripts from a testbed
 repository.
 
+This repository now also exposes the root Marketplace action entrypoint:
+
+```yaml
+uses: sthenos-security/reach-ci-github@v1
+```
+
+That root `action.yml` is the publishable GitHub Marketplace unit. The
+reusable workflow at
+[`/.github/workflows/auto-remediate.yml`](.github/workflows/auto-remediate.yml)
+remains the richer orchestration surface for customers who prefer a reusable
+workflow contract.
+
 The goal is simple: set a small number of variables/secrets, run a workflow, and
 receive structured proof artifacts plus an optional remediation branch and PR
 for human review.
@@ -29,6 +41,47 @@ Canonical docs:
    or generate it with the SDK snippet in [SDK Usage](#sdk-usage).
 4. Run **Actions -> Reachable Auto Remediation -> Run workflow**.
 5. Review the proof artifacts, remediation branch, and PR if `create_pr=true`.
+
+## Marketplace Action
+
+If you want the GitHub Marketplace install surface, use the root action from
+this repository. The caller workflow still needs normal GitHub job permissions
+and a checkout step, but the product entrypoint is now the repo root instead of
+an internal sub-action.
+
+```yaml
+name: Reachable Auto Remediation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+  actions: write
+  pages: write
+  id-token: write
+
+jobs:
+  reachable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: sthenos-security/reach-ci-github@v1
+        with:
+          ai_mode: openai-codex
+          fail_on: exploitable
+          create_pr: "true"
+          publish_report: "true"
+          publish_pages: "true"
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          mcp_github_token: ${{ secrets.MCP_GITHUB_TOKEN }}
+```
+
+The Marketplace action defaults `target_branch` to the current checkout branch.
+Use `target_branch` explicitly when your workflow checks out a different ref
+than the branch you want the remediation PR to target.
 
 **Required tokens for customer-facing use**
 
