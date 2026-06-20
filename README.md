@@ -29,13 +29,12 @@ Canonical docs:
 - Primer: <https://sthenosec.com/docs/primer>
 - Auto-remediation overview: <https://sthenosec.com/resources/auto-remediation>
 
-Related public GitHub examples:
+Related public GitHub surfaces:
 
 | Repo | Role |
 |---|---|
 | [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | GitHub Marketplace distribution surface plus the configurable root action. |
-| [`reach-testbed-github-go`](https://github.com/sthenos-security/reach-testbed-github-go) | Go public-clone/remediation proof demo with expected findings and public proof page. |
-| [`reach-testbed-github`](https://github.com/sthenos-security/reach-testbed-github) | Basic GitHub scan demo and simple scanner reference. |
+| [`reach-testbed-github-go`](https://github.com/sthenos-security/reach-testbed-github-go) | Public GitHub demo repo for full remediation and scan-only runs with remediation disabled. |
 
 ## Quick Start
 
