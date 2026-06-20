@@ -32,6 +32,7 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn("ai_mode=copilot-github requires REACHABLE_COPILOT_USER_TOKEN for dispatch.", text)
             self.assertIn("reachctl copilot doctor --repo", text)
             self.assertIn("reachctl copilot dispatch", text)
+            self.assertIn("--mode reachable-high", text)
             self.assertIn(".reachable/ci-artifacts/copilot-doctor.json", text)
             self.assertIn(".reachable/ci-artifacts/copilot-dispatch.json", text)
             self.assertIn("REACHABLE_REQUIRE_COPILOT_TASKS=true", text)

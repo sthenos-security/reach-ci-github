@@ -270,10 +270,10 @@ jobs:
 
 Use `ai_mode: copilot-github` when you want GitHub Copilot cloud agent to own
 the code edit asynchronously. This lane scans the target branch, dispatches
-bounded Copilot issues/tasks from `repo.db`, publishes sanitized status
-artifacts, and exits. It does not install a local coding agent or mark a fix
-complete. Copilot PRs still require a separate REACHABLE verification pass
-before they should be treated as ready.
+bounded Copilot issues/tasks from reachable high/critical `repo.db` evidence,
+publishes sanitized status artifacts, and exits. It does not install a local
+coding agent or mark a fix complete. Copilot PRs still require a separate
+REACHABLE verification pass before they should be treated as ready.
 
 ```yaml
 name: Reachable Copilot Remediation Dispatch

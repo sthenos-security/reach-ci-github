@@ -426,7 +426,7 @@ runs:
         reachctl copilot dispatch \
           --repo-db "$repo_db" \
           --repo "${GITHUB_REPOSITORY}" \
-          --mode exploit-positive \
+          --mode reachable-high \
           --max-tasks "${REACHABLE_MAX_BATCHES}" \
           --base-ref "${REACHABLE_TARGET_BRANCH}" \
           --json > .reachable/ci-artifacts/copilot-dispatch.json

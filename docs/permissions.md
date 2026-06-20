@@ -57,5 +57,6 @@ Do not use Reachable scanner tokens to create branches or PRs. That is the
 workflow token's job.
 
 For `ai_mode=copilot-github`, the workflow dispatches async Copilot tasks from
-DB-backed scan evidence and exits. A Copilot PR is not considered fixed until a
-separate REACHABLE verification pass records proof for the linked task.
+reachable high/critical DB-backed scan evidence and exits. A Copilot PR is not
+considered fixed until a separate REACHABLE verification pass records proof for
+the linked task.

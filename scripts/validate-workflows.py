@@ -182,6 +182,7 @@ def validate_shared_helper_contract() -> None:
         "ai_mode=copilot-github requires REACHABLE_COPILOT_USER_TOKEN for dispatch.",
         "reachctl copilot doctor --repo",
         "reachctl copilot dispatch",
+        "--mode reachable-high",
         ".reachable/ci-artifacts/copilot-doctor.json",
         ".reachable/ci-artifacts/copilot-dispatch.json",
         "issues: write",
