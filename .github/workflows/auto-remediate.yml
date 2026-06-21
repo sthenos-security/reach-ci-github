@@ -343,9 +343,26 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .reachable/ci-artifacts
+          signal_args=()
+          if [ "${REACHABLE_SIGNAL_TYPES}" = "all" ]; then
+            signal_args+=(--all)
+          else
+            IFS=',' read -ra families <<< "${REACHABLE_SIGNAL_TYPES}"
+            for family in "${families[@]}"; do
+              family="$(echo "$family" | xargs)"
+              [ -n "$family" ] && signal_args+=(--signal-type "$family")
+            done
+          fi
           repo_db="$(python -c 'from reachable.ci.proof_page import find_latest_repo_db; print(find_latest_repo_db())')"
           echo "REACHABLE_REPO_DB=${repo_db}" >> "$GITHUB_ENV"
           echo "REACHABLE_REQUIRE_COPILOT_TASKS=false" >> "$GITHUB_ENV"
+          reachctl remediate . \
+            --context ci \
+            --output-dir .reachable/remediation-bundle \
+            --agent copilot \
+            --mode branch \
+            --profile "${REACHABLE_PROMPT_PROFILE}" \
+            "${signal_args[@]}"
           cp "$repo_db" .reachable/ci-artifacts/copilot-tasks.repo.db
           reachctl copilot doctor \
             --repo "${GITHUB_REPOSITORY}" \
@@ -353,9 +370,9 @@ jobs:
             --json > .reachable/ci-artifacts/copilot-doctor.json
           reachctl copilot dispatch \
             --repo-db "$repo_db" \
+            --bundle .reachable/remediation-bundle/bundle.json \
             --repo "${GITHUB_REPOSITORY}" \
             --mode reachable-high \
-            --max-tasks "${REACHABLE_MAX_BATCHES}" \
             --base-ref "${{ inputs.target_branch }}" \
             --dispatch-kind agent_task \
             --json > .reachable/ci-artifacts/copilot-dispatch.json
