@@ -99,6 +99,8 @@ class WorkflowContractTests(unittest.TestCase):
     def test_setup_and_pr_actions_have_ci_fallbacks(self) -> None:
         setup = (ROOT / "actions" / "setup-reachable" / "action.yml").read_text(encoding="utf-8")
         pr_action = (ROOT / "actions" / "open-remediation-pr" / "action.yml").read_text(encoding="utf-8")
+        self.assertIn("dist-base-url:", setup)
+        self.assertIn('export REACHABLE_DIST_BASE_URL="${{ inputs.dist-base-url }}"', setup)
         self.assertIn("for attempt in 1 2 3", setup)
         self.assertIn("Reachable installer failed after", setup)
         self.assertIn("pr-created=false", pr_action)
@@ -106,6 +108,12 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("open a PR manually", pr_action)
         self.assertIn("grep -Eom1 '^https?://[^[:space:]]+$'", pr_action)
         self.assertNotIn("awk '/^https?:\\\\/\\\\// {print; exit}'", pr_action)
+
+    def test_candidate_dist_override_threads_through_public_surfaces(self) -> None:
+        self.assertIn("reachable_dist_base_url", WORKFLOW)
+        self.assertIn("dist-base-url: ${{ inputs.reachable_dist_base_url }}", WORKFLOW)
+        self.assertIn("reachable_dist_base_url", ROOT_ACTION)
+        self.assertIn("dist-base-url: ${{ inputs.reachable_dist_base_url }}", ROOT_ACTION)
 
     def test_portable_timeout_wrapper_is_embedded_in_remediation_core(self) -> None:
         self.assertIn('run_with_timeout() {', REMEDIATION_CORE)

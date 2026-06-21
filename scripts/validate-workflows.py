@@ -189,6 +189,8 @@ def validate_shared_helper_contract() -> None:
         "reachctl copilot dispatch",
         "--bundle .reachable/remediation-bundle/bundle.json",
         "--mode reachable-high",
+        "reachable_dist_base_url",
+        "dist-base-url: ${{ inputs.reachable_dist_base_url }}",
         ".reachable/ci-artifacts/copilot-doctor.json",
         ".reachable/ci-artifacts/copilot-dispatch.json",
         "issues: write",
@@ -223,6 +225,7 @@ def validate_shared_helper_contract() -> None:
         "upload_artifacts",
         "openai_api_key",
         "anthropic_api_key",
+        "reachable_dist_base_url",
         "reachable_copilot_user_token",
         "reachctl copilot dispatch",
         "Reachable CI Action requires a checked-out repository.",
@@ -248,6 +251,8 @@ def validate_shared_helper_contract() -> None:
         "run_with_timeout \"$agent_timeout_sec\"",
         "timeout --kill-after=30s \"${timeout_sec}s\"",
         "subprocess.run(cmd, check=False, timeout=timeout_s).returncode",
+        "dist-base-url:",
+        "REACHABLE_DIST_BASE_URL",
         "reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup",
         "git ls-files --modified --others --exclude-standard -z",
         "git add --pathspec-from-file=\"$stage_list\" --pathspec-file-nul",
@@ -261,7 +266,7 @@ def validate_shared_helper_contract() -> None:
         "Apply the Reachable remediation task provided on stdin",
         "name.startswith(\"reachable-\")",
     ):
-        if expected not in helper_text and expected not in remediation_action:
+        if expected not in helper_text and expected not in remediation_action and expected not in action_text:
             raise AssertionError(f"helper contract missing: {expected}")
     if workflow.find("Push remediation branch") > workflow.find("Publish report"):
         raise AssertionError("remediation branch must be committed before proof page publication")

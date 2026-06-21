@@ -60,6 +60,9 @@ on:
       reachable_dist_repo:
         type: string
         default: sthenos-security/reach-dist
+      reachable_dist_base_url:
+        type: string
+        default: ""
     secrets:
       OPENAI_API_KEY:
         required: false
@@ -112,6 +115,7 @@ jobs:
       REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
       REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
       REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
+      REACHABLE_DIST_BASE_URL: ${{ inputs.reachable_dist_base_url }}
       REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
       REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
       REACHABLE_COPILOT_USER_TOKEN: ${{ secrets.REACHABLE_COPILOT_USER_TOKEN }}
@@ -255,6 +259,7 @@ jobs:
         uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
         with:
           dist-repo: ${{ inputs.reachable_dist_repo }}
+          dist-base-url: ${{ inputs.reachable_dist_base_url }}
           fresh-scan: ${{ inputs.fresh_scan }}
 
       - name: Write NOP integration artifacts

@@ -6,6 +6,10 @@ inputs:
     description: Distribution repository containing install.sh.
     required: false
     default: sthenos-security/reach-dist
+  dist-base-url:
+    description: Optional candidate distribution base URL containing latest.json and wheel assets.
+    required: false
+    default: ""
   fresh-scan:
     description: Delete ~/.reachable before installation.
     required: false
@@ -39,6 +43,10 @@ runs:
         export PATH="$HOME/.reachable/venv/bin:$HOME/.reachable/tools/bin:$PATH"
         install_script="${RUNNER_TEMP:-/tmp}/reachable-install.sh"
         installer_url="https://raw.githubusercontent.com/${{ inputs.dist-repo }}/main/install.sh"
+        if [ -n "${{ inputs.dist-base-url }}" ]; then
+          export REACHABLE_DIST_BASE_URL="${{ inputs.dist-base-url }}"
+          echo "Using Reachable candidate dist base URL: ${REACHABLE_DIST_BASE_URL}"
+        fi
         install_args=(--update)
         for attempt in 1 2 3; do
           if curl -fsSL "$installer_url" -o "$install_script" && bash "$install_script" "${install_args[@]}"; then

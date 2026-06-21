@@ -93,6 +93,10 @@ inputs:
     description: Distribution repository containing install.sh.
     required: false
     default: sthenos-security/reach-dist
+  reachable_dist_base_url:
+    description: Optional candidate distribution base URL containing latest.json and wheel assets.
+    required: false
+    default: ""
   openai_api_key:
     description: OpenAI key used for openai-gpt or openai-codex lanes.
     required: false
@@ -318,6 +322,7 @@ runs:
       run: |
         set -euo pipefail
         echo "REACHABLE_DIST_REPO=${{ inputs.reachable_dist_repo }}" >> "$GITHUB_ENV"
+        echo "REACHABLE_DIST_BASE_URL=${{ inputs.reachable_dist_base_url }}" >> "$GITHUB_ENV"
         echo "REACHABLE_API_KEY=${{ inputs.reachable_api_key }}" >> "$GITHUB_ENV"
         echo "REACHABLE_GITHUB_TOKEN=${{ inputs.reachable_github_token }}" >> "$GITHUB_ENV"
         echo "REACHABLE_COPILOT_USER_TOKEN=${{ inputs.reachable_copilot_user_token }}" >> "$GITHUB_ENV"
@@ -331,6 +336,7 @@ runs:
       uses: ./actions/setup-reachable
       with:
         dist-repo: ${{ inputs.reachable_dist_repo }}
+        dist-base-url: ${{ inputs.reachable_dist_base_url }}
         fresh-scan: ${{ inputs.fresh_scan }}
 
     - name: Write NOP integration artifacts
