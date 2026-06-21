@@ -347,13 +347,17 @@ jobs:
           echo "REACHABLE_REPO_DB=${repo_db}" >> "$GITHUB_ENV"
           echo "REACHABLE_REQUIRE_COPILOT_TASKS=false" >> "$GITHUB_ENV"
           cp "$repo_db" .reachable/ci-artifacts/copilot-tasks.repo.db
-          reachctl copilot doctor --repo "${GITHUB_REPOSITORY}" --json > .reachable/ci-artifacts/copilot-doctor.json
+          reachctl copilot doctor \
+            --repo "${GITHUB_REPOSITORY}" \
+            --dispatch-kind agent_task \
+            --json > .reachable/ci-artifacts/copilot-doctor.json
           reachctl copilot dispatch \
             --repo-db "$repo_db" \
             --repo "${GITHUB_REPOSITORY}" \
             --mode reachable-high \
             --max-tasks "${REACHABLE_MAX_BATCHES}" \
             --base-ref "${{ inputs.target_branch }}" \
+            --dispatch-kind agent_task \
             --json > .reachable/ci-artifacts/copilot-dispatch.json
           task_count="$(python -c 'import json; from pathlib import Path; payload = json.loads(Path(".reachable/ci-artifacts/copilot-dispatch.json").read_text(encoding="utf-8")); print(len(payload.get("tasks") or []))')"
           echo "REACHABLE_COPILOT_TASK_COUNT=${task_count}" >> "$GITHUB_ENV"
