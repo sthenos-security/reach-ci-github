@@ -346,6 +346,7 @@ jobs:
           repo_db="$(python -c 'from reachable.ci.proof_page import find_latest_repo_db; print(find_latest_repo_db())')"
           echo "REACHABLE_REPO_DB=${repo_db}" >> "$GITHUB_ENV"
           echo "REACHABLE_REQUIRE_COPILOT_TASKS=false" >> "$GITHUB_ENV"
+          cp "$repo_db" .reachable/ci-artifacts/copilot-tasks.repo.db
           reachctl copilot doctor --repo "${GITHUB_REPOSITORY}" --json > .reachable/ci-artifacts/copilot-doctor.json
           reachctl copilot dispatch \
             --repo-db "$repo_db" \
@@ -359,6 +360,7 @@ jobs:
           if [ "$task_count" -gt 0 ]; then
             echo "REACHABLE_REQUIRE_COPILOT_TASKS=true" >> "$GITHUB_ENV"
           fi
+          cp "$repo_db" .reachable/ci-artifacts/copilot-tasks.repo.db
           echo "Dispatched ${task_count} Copilot remediation task(s)."
 
       - name: Final proof scan
