@@ -42,7 +42,7 @@ Reachable tokens are separate from workflow control:
 | `MCP_GITHUB_TOKEN` | Recommended read-only GitHub source token for MCP GitHub cloning and package git clone fallback. Use a fine-grained PAT with `Contents: Read-only` on the repos Reachable should inspect. |
 | `OPENAI_API_KEY` | Required for the default Codex/OpenAI lane in customer-facing runs. |
 | `ANTHROPIC_API_KEY` | Required for the Claude/Anthropic lane in customer-facing runs. |
-| `REACHABLE_COPILOT_USER_TOKEN` | Required only for `ai_mode=copilot-github`; used to dispatch GitHub Copilot issues/tasks. |
+| `REACHABLE_COPILOT_USER_TOKEN` | Required only for `ai_mode=copilot-github`; used to dispatch GitHub Copilot issues/tasks. It does not merge PRs. |
 | `COPILOT_MCP_REACHABLE_TOKEN` | Optional Copilot Agents secret for read-only REACHABLE MCP context. Must be configured in the Copilot Agents secret plane, not only as an Actions secret. |
 
 Create `MCP_GITHUB_TOKEN` at
@@ -57,6 +57,13 @@ Do not use Reachable scanner tokens to create branches or PRs. That is the
 workflow token's job.
 
 For `ai_mode=copilot-github`, the workflow dispatches async Copilot tasks from
-reachable high/critical DB-backed scan evidence and exits. A Copilot PR is not
-considered fixed until a separate REACHABLE verification pass records proof for
-the linked task.
+reachable high/critical DB-backed scan evidence and exits. One campaign can
+create multiple tasks and multiple Copilot PRs because REACHABLE shards the work
+by remediation affinity and priority. A Copilot PR is not considered fixed until
+a separate REACHABLE verification pass records proof for the linked task, and
+the campaign is not complete until aggregate parity proof shows no unresolved
+release-blocking signals.
+
+Auto-merge is intentionally outside the default permission model. Customers can
+add their own merge policy later, but the supported default is reviewable PRs
+plus proof artifacts.
