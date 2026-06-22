@@ -189,6 +189,8 @@ def validate_shared_helper_contract() -> None:
         "reachctl copilot dispatch",
         "--bundle .reachable/remediation-bundle/bundle.json",
         "--mode reachable-high",
+        ".reachable/ci-artifacts/copilot-bundle.json",
+        ".reachable/ci-artifacts/copilot-pre-dispatch.repo.db",
         "reachable_dist_base_url",
         "dist-base-url: ${{ inputs.reachable_dist_base_url }}",
         ".reachable/ci-artifacts/copilot-doctor.json",

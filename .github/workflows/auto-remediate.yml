@@ -368,6 +368,11 @@ jobs:
             --mode branch \
             --profile "${REACHABLE_PROMPT_PROFILE}" \
             "${signal_args[@]}"
+          cp .reachable/remediation-bundle/bundle.json .reachable/ci-artifacts/copilot-bundle.json
+          if [ -f .reachable/remediation-bundle/prompt.md ]; then
+            cp .reachable/remediation-bundle/prompt.md .reachable/ci-artifacts/copilot-prompt.md
+          fi
+          cp "$repo_db" .reachable/ci-artifacts/copilot-pre-dispatch.repo.db
           cp "$repo_db" .reachable/ci-artifacts/copilot-tasks.repo.db
           reachctl copilot doctor \
             --repo "${GITHUB_REPOSITORY}" \
