@@ -202,6 +202,7 @@ jobs:
           echo "REACHABLE_MAX_BATCHES=${normalized_batches}" >> "$GITHUB_ENV"
           echo "REACHABLE_RESCAN_STRATEGY=$(normalize_choice rescan_strategy "${REACHABLE_RESCAN_STRATEGY}" each_batch final_only)" >> "$GITHUB_ENV"
           echo "REACHABLE_PROMPT_PROFILE=$(normalize_choice prompt_profile "${REACHABLE_PROMPT_PROFILE}" aggressive balanced nightly release safe)" >> "$GITHUB_ENV"
+          echo "REACHABLE_SIGNAL_TYPES=${REACHABLE_SIGNAL_TYPES}" >> "$GITHUB_ENV"
           normalized_fail_on="$(normalize_fail_on "${REACHABLE_FAIL_ON}")"
           normalized_proof_fail_on="$normalized_fail_on"
           if [ -n "$(normalize_token "${REACHABLE_PROOF_FAIL_ON}")" ]; then
