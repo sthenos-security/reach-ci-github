@@ -333,7 +333,7 @@ runs:
 
     - name: Setup Reachable
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
-      uses: ./actions/setup-reachable
+      uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
       with:
         dist-repo: ${{ inputs.reachable_dist_repo }}
         dist-base-url: ${{ inputs.reachable_dist_base_url }}
@@ -417,7 +417,7 @@ runs:
 
     - name: Remediate and verify
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
-      uses: ./actions/remediation-core
+      uses: sthenos-security/reach-ci-github/actions/remediation-core@v1
 
     - name: Dispatch Copilot remediation tasks
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE == 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
@@ -508,7 +508,7 @@ runs:
     - name: Open remediation PR
       id: open-remediation-pr
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && inputs.remediate == 'true' && inputs.rescan_only != 'true' && inputs.create_pr == 'true' && env.REACHABLE_BRANCH_PUSHED == 'true' }}
-      uses: ./actions/open-remediation-pr
+      uses: sthenos-security/reach-ci-github/actions/open-remediation-pr@v1
       with:
         branch: ${{ env.REACHABLE_REMEDIATION_BRANCH }}
         base: ${{ env.REACHABLE_TARGET_BRANCH }}

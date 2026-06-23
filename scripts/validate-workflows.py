@@ -220,9 +220,9 @@ def validate_shared_helper_contract() -> None:
             raise AssertionError(f"workflow is missing standardized report output: {expected}")
     for expected in (
         "name: Reachable CI Auto Remediation",
-        "uses: ./actions/setup-reachable",
-        "uses: ./actions/remediation-core",
-        "uses: ./actions/open-remediation-pr",
+        "uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1",
+        "uses: sthenos-security/reach-ci-github/actions/remediation-core@v1",
+        "uses: sthenos-security/reach-ci-github/actions/open-remediation-pr@v1",
         "publish_pages",
         "upload_artifacts",
         "openai_api_key",
