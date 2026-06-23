@@ -211,6 +211,7 @@ jobs:
           echo "REACHABLE_PROOF_FAIL_ON=${normalized_proof_fail_on}" >> "$GITHUB_ENV"
           normalized_scan_mode="$(normalize_choice scan_mode "${REACHABLE_SCAN_MODE}" real nop)"
           echo "REACHABLE_SCAN_MODE=${normalized_scan_mode}" >> "$GITHUB_ENV"
+          echo "REACHABLE_SCAN_EXTRA_FLAGS=${REACHABLE_SCAN_EXTRA_FLAGS}" >> "$GITHUB_ENV"
 
           normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude copilot-github)"
           if [ "$normalized_mode" = "openai-gpt" ] && [ "$normalized_remediate" = "true" ]; then
