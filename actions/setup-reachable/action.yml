@@ -3,7 +3,7 @@ description: Install or update Reachable and report cache evidence.
 
 inputs:
   dist-repo:
-    description: Distribution repository containing install.sh.
+    description: Fallback distribution repository containing install.sh when the first-party installer is unavailable.
     required: false
     default: sthenos-security/reach-dist
   dist-base-url:
@@ -42,14 +42,19 @@ runs:
         echo "$HOME/.reachable/tools/bin" >> "$GITHUB_PATH"
         export PATH="$HOME/.reachable/venv/bin:$HOME/.reachable/tools/bin:$PATH"
         install_script="${RUNNER_TEMP:-/tmp}/reachable-install.sh"
-        installer_url="https://raw.githubusercontent.com/${{ inputs.dist-repo }}/main/install.sh"
+        public_installer_url="https://sthenosec.com/download/install.sh"
+        fallback_installer_url="https://raw.githubusercontent.com/${{ inputs.dist-repo }}/main/install.sh"
         if [ -n "${{ inputs.dist-base-url }}" ]; then
           export REACHABLE_DIST_BASE_URL="${{ inputs.dist-base-url }}"
           echo "Using Reachable candidate dist base URL: ${REACHABLE_DIST_BASE_URL}"
         fi
         install_args=(--update)
         for attempt in 1 2 3; do
-          if curl -fsSL "$installer_url" -o "$install_script" && bash "$install_script" "${install_args[@]}"; then
+          if curl -fsSL "$public_installer_url" -o "$install_script" && bash "$install_script" "${install_args[@]}"; then
+            break
+          fi
+          echo "Reachable public installer attempt ${attempt} failed; trying fallback repo installer." >&2
+          if curl -fsSL "$fallback_installer_url" -o "$install_script" && bash "$install_script" "${install_args[@]}"; then
             break
           fi
           if [ "$attempt" -eq 3 ]; then
