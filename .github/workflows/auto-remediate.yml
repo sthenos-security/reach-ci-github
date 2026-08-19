@@ -116,13 +116,6 @@ jobs:
       REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
       REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
       REACHABLE_DIST_BASE_URL: ${{ inputs.reachable_dist_base_url }}
-      REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
-      REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
-      REACHABLE_COPILOT_USER_TOKEN: ${{ secrets.REACHABLE_COPILOT_USER_TOKEN }}
-      MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      GITHUB_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout target branch
@@ -133,6 +126,10 @@ jobs:
 
       - name: Validate Reachable inputs
         shell: bash
+        env:
+          REACHABLE_COPILOT_USER_TOKEN: ${{ secrets.REACHABLE_COPILOT_USER_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
           normalize_token() {
@@ -186,33 +183,37 @@ jobs:
           normalized_publish_report="$(normalize_bool publish_report "${REACHABLE_PUBLISH_REPORT}")"
           normalized_require_ai="$(normalize_bool require_ai "${REACHABLE_REQUIRE_AI}")"
           normalized_fresh_scan="$(normalize_bool fresh_scan "${REACHABLE_FRESH_SCAN}")"
-          echo "REACHABLE_REMEDIATE_ENABLED=${normalized_remediate}" >> "$GITHUB_ENV"
-          echo "REACHABLE_RESCAN_ONLY=${normalized_rescan_only}" >> "$GITHUB_ENV"
-          echo "REACHABLE_CREATE_PR=${normalized_create_pr}" >> "$GITHUB_ENV"
-          echo "REACHABLE_PUBLISH_REPORT=${normalized_publish_report}" >> "$GITHUB_ENV"
-          echo "REACHABLE_REQUIRE_AI=${normalized_require_ai}" >> "$GITHUB_ENV"
-          echo "REACHABLE_FRESH_SCAN=${normalized_fresh_scan}" >> "$GITHUB_ENV"
           normalized_timeout="$(normalize_positive_int agent_timeout_sec "${REACHABLE_AGENT_TIMEOUT_SEC}")"
           normalized_batches="$(normalize_positive_int max_batches "${REACHABLE_MAX_BATCHES}")"
           if [ "$normalized_batches" -gt 10 ]; then
             echo "max_batches must be between 1 and 10; got '${REACHABLE_MAX_BATCHES}'." >&2
             exit 2
           fi
-          echo "REACHABLE_AGENT_TIMEOUT_SEC=${normalized_timeout}" >> "$GITHUB_ENV"
-          echo "REACHABLE_MAX_BATCHES=${normalized_batches}" >> "$GITHUB_ENV"
-          echo "REACHABLE_RESCAN_STRATEGY=$(normalize_choice rescan_strategy "${REACHABLE_RESCAN_STRATEGY}" each_batch final_only)" >> "$GITHUB_ENV"
-          echo "REACHABLE_PROMPT_PROFILE=$(normalize_choice prompt_profile "${REACHABLE_PROMPT_PROFILE}" aggressive balanced nightly release safe)" >> "$GITHUB_ENV"
-          echo "REACHABLE_SIGNAL_TYPES=${REACHABLE_SIGNAL_TYPES}" >> "$GITHUB_ENV"
+          normalized_rescan_strategy="$(normalize_choice rescan_strategy "${REACHABLE_RESCAN_STRATEGY}" each_batch final_only)"
+          normalized_prompt_profile="$(normalize_choice prompt_profile "${REACHABLE_PROMPT_PROFILE}" aggressive balanced nightly release safe)"
           normalized_fail_on="$(normalize_fail_on "${REACHABLE_FAIL_ON}")"
           normalized_proof_fail_on="$normalized_fail_on"
           if [ -n "$(normalize_token "${REACHABLE_PROOF_FAIL_ON}")" ]; then
             normalized_proof_fail_on="$(normalize_fail_on "${REACHABLE_PROOF_FAIL_ON}")"
           fi
-          echo "REACHABLE_FAIL_ON=${normalized_fail_on}" >> "$GITHUB_ENV"
-          echo "REACHABLE_PROOF_FAIL_ON=${normalized_proof_fail_on}" >> "$GITHUB_ENV"
           normalized_scan_mode="$(normalize_choice scan_mode "${REACHABLE_SCAN_MODE}" real nop)"
-          echo "REACHABLE_SCAN_MODE=${normalized_scan_mode}" >> "$GITHUB_ENV"
-          echo "REACHABLE_SCAN_EXTRA_FLAGS=${REACHABLE_SCAN_EXTRA_FLAGS}" >> "$GITHUB_ENV"
+          {
+            echo "REACHABLE_REMEDIATE_ENABLED=${normalized_remediate}"
+            echo "REACHABLE_RESCAN_ONLY=${normalized_rescan_only}"
+            echo "REACHABLE_CREATE_PR=${normalized_create_pr}"
+            echo "REACHABLE_PUBLISH_REPORT=${normalized_publish_report}"
+            echo "REACHABLE_REQUIRE_AI=${normalized_require_ai}"
+            echo "REACHABLE_FRESH_SCAN=${normalized_fresh_scan}"
+            echo "REACHABLE_AGENT_TIMEOUT_SEC=${normalized_timeout}"
+            echo "REACHABLE_MAX_BATCHES=${normalized_batches}"
+            echo "REACHABLE_RESCAN_STRATEGY=${normalized_rescan_strategy}"
+            echo "REACHABLE_PROMPT_PROFILE=${normalized_prompt_profile}"
+            echo "REACHABLE_SIGNAL_TYPES=${REACHABLE_SIGNAL_TYPES}"
+            echo "REACHABLE_FAIL_ON=${normalized_fail_on}"
+            echo "REACHABLE_PROOF_FAIL_ON=${normalized_proof_fail_on}"
+            echo "REACHABLE_SCAN_MODE=${normalized_scan_mode}"
+            echo "REACHABLE_SCAN_EXTRA_FLAGS=${REACHABLE_SCAN_EXTRA_FLAGS}"
+          } >> "$GITHUB_ENV"
 
           normalized_mode="$(normalize_choice ai_mode "${REACHABLE_AI_MODE}" openai-codex openai-gpt anthropic-claude copilot-github)"
           if [ "$normalized_mode" = "openai-gpt" ] && [ "$normalized_remediate" = "true" ]; then
@@ -259,6 +260,11 @@ jobs:
       - name: Setup Reachable
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
         uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
+        env:
+          REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
+          REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
+          MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           dist-repo: ${{ inputs.reachable_dist_repo }}
           dist-base-url: ${{ inputs.reachable_dist_base_url }}
@@ -286,6 +292,13 @@ jobs:
       - name: Baseline scan
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
         shell: bash
+        env:
+          REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
+          REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
+          MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p .reachable/ci-artifacts
@@ -324,6 +337,8 @@ jobs:
       - name: Install selected coding agent
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate && !inputs.rescan_only }}
         shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           set -euo pipefail
           case "${REACHABLE_AGENT}" in
@@ -343,10 +358,23 @@ jobs:
       - name: Remediate and verify
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate && !inputs.rescan_only }}
         uses: sthenos-security/reach-ci-github/actions/remediation-core@v1
+        env:
+          REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
+          REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
+          MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Dispatch Copilot remediation tasks
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE == 'copilot-github' && inputs.remediate && !inputs.rescan_only }}
         shell: bash
+        env:
+          REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
+          REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
+          REACHABLE_COPILOT_USER_TOKEN: ${{ secrets.REACHABLE_COPILOT_USER_TOKEN }}
+          MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p .reachable/ci-artifacts
@@ -399,6 +427,13 @@ jobs:
       - name: Final proof scan
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && (inputs.remediate || inputs.rescan_only) }}
         shell: bash
+        env:
+          REACHABLE_API_KEY: ${{ secrets.REACHABLE_API_KEY }}
+          REACHABLE_GITHUB_TOKEN: ${{ secrets.REACHABLE_GITHUB_TOKEN }}
+          MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           branch="${REACHABLE_REMEDIATION_BRANCH:-${{ inputs.target_branch }}}"

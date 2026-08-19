@@ -319,23 +319,21 @@ runs:
         echo "Reachable AI mode resolved: ${normalized_mode}"
         echo "Reachable scan mode resolved: ${normalized_scan_mode}"
 
-    - name: Export Reachable credentials
+    - name: Export Reachable configuration
       shell: bash
       run: |
         set -euo pipefail
         echo "REACHABLE_DIST_REPO=${{ inputs.reachable_dist_repo }}" >> "$GITHUB_ENV"
         echo "REACHABLE_DIST_BASE_URL=${{ inputs.reachable_dist_base_url }}" >> "$GITHUB_ENV"
-        echo "REACHABLE_API_KEY=${{ inputs.reachable_api_key }}" >> "$GITHUB_ENV"
-        echo "REACHABLE_GITHUB_TOKEN=${{ inputs.reachable_github_token }}" >> "$GITHUB_ENV"
-        echo "REACHABLE_COPILOT_USER_TOKEN=${{ inputs.reachable_copilot_user_token }}" >> "$GITHUB_ENV"
-        echo "MCP_GITHUB_TOKEN=${{ inputs.mcp_github_token }}" >> "$GITHUB_ENV"
-        echo "OPENAI_API_KEY=${{ inputs.openai_api_key }}" >> "$GITHUB_ENV"
-        echo "ANTHROPIC_API_KEY=${{ inputs.anthropic_api_key }}" >> "$GITHUB_ENV"
-        echo "GITHUB_TOKEN=${{ github.token }}" >> "$GITHUB_ENV"
 
     - name: Setup Reachable
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
       uses: sthenos-security/reach-ci-github/actions/setup-reachable@v1
+      env:
+        REACHABLE_API_KEY: ${{ inputs.reachable_api_key }}
+        REACHABLE_GITHUB_TOKEN: ${{ inputs.reachable_github_token }}
+        MCP_GITHUB_TOKEN: ${{ inputs.mcp_github_token }}
+        GITHUB_TOKEN: ${{ github.token }}
       with:
         dist-repo: ${{ inputs.reachable_dist_repo }}
         dist-base-url: ${{ inputs.reachable_dist_base_url }}
@@ -363,6 +361,13 @@ runs:
     - name: Baseline scan
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' }}
       shell: bash
+      env:
+        REACHABLE_API_KEY: ${{ inputs.reachable_api_key }}
+        REACHABLE_GITHUB_TOKEN: ${{ inputs.reachable_github_token }}
+        MCP_GITHUB_TOKEN: ${{ inputs.mcp_github_token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         mkdir -p .reachable/ci-artifacts
@@ -401,6 +406,8 @@ runs:
     - name: Install selected coding agent
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
       shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
       run: |
         set -euo pipefail
         case "${REACHABLE_AGENT}" in
@@ -420,10 +427,23 @@ runs:
     - name: Remediate and verify
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
       uses: sthenos-security/reach-ci-github/actions/remediation-core@v1
+      env:
+        REACHABLE_API_KEY: ${{ inputs.reachable_api_key }}
+        REACHABLE_GITHUB_TOKEN: ${{ inputs.reachable_github_token }}
+        MCP_GITHUB_TOKEN: ${{ inputs.mcp_github_token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        GITHUB_TOKEN: ${{ github.token }}
 
     - name: Dispatch Copilot remediation tasks
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE == 'copilot-github' && inputs.remediate == 'true' && inputs.rescan_only != 'true' }}
       shell: bash
+      env:
+        REACHABLE_API_KEY: ${{ inputs.reachable_api_key }}
+        REACHABLE_GITHUB_TOKEN: ${{ inputs.reachable_github_token }}
+        REACHABLE_COPILOT_USER_TOKEN: ${{ inputs.reachable_copilot_user_token }}
+        MCP_GITHUB_TOKEN: ${{ inputs.mcp_github_token }}
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         mkdir -p .reachable/ci-artifacts
@@ -477,6 +497,13 @@ runs:
     - name: Final proof scan
       if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && (inputs.remediate == 'true' || inputs.rescan_only == 'true') }}
       shell: bash
+      env:
+        REACHABLE_API_KEY: ${{ inputs.reachable_api_key }}
+        REACHABLE_GITHUB_TOKEN: ${{ inputs.reachable_github_token }}
+        MCP_GITHUB_TOKEN: ${{ inputs.mcp_github_token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         branch="${REACHABLE_REMEDIATION_BRANCH:-${REACHABLE_TARGET_BRANCH}}"

@@ -80,6 +80,29 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("::warning title=Reachable JSON export unavailable::", ROOT_ACTION)
         self.assertIn("::warning title=Reachable summary export unavailable::", ROOT_ACTION)
 
+    def test_secrets_are_not_persisted_to_github_env(self) -> None:
+        for text in (WORKFLOW, ROOT_ACTION):
+            self.assertNotIn('echo "REACHABLE_API_KEY=', text)
+            self.assertNotIn('echo "REACHABLE_GITHUB_TOKEN=', text)
+            self.assertNotIn('echo "REACHABLE_COPILOT_USER_TOKEN=', text)
+            self.assertNotIn('echo "MCP_GITHUB_TOKEN=', text)
+            self.assertNotIn('echo "OPENAI_API_KEY=', text)
+            self.assertNotIn('echo "ANTHROPIC_API_KEY=', text)
+            self.assertNotIn('echo "GITHUB_TOKEN=', text)
+            self.assertNotIn("RUNNER_TEMP}/secrets", text)
+            self.assertNotIn("API_KEY_FILE", text)
+            self.assertNotIn("AUTH_TOKEN_FILE", text)
+            self.assertNotIn("--api-key ${", text)
+
+    def test_reusable_workflow_does_not_give_every_step_vendor_secrets(self) -> None:
+        job_env = WORKFLOW.split("    steps:", 1)[0]
+        self.assertNotIn("secrets.REACHABLE_API_KEY", job_env)
+        self.assertNotIn("secrets.REACHABLE_GITHUB_TOKEN", job_env)
+        self.assertNotIn("secrets.REACHABLE_COPILOT_USER_TOKEN", job_env)
+        self.assertNotIn("secrets.MCP_GITHUB_TOKEN", job_env)
+        self.assertNotIn("secrets.OPENAI_API_KEY", job_env)
+        self.assertNotIn("secrets.ANTHROPIC_API_KEY", job_env)
+
     def test_claude_lane_uses_non_interactive_prompt_with_stdin(self) -> None:
         self.assertIn("--permission-mode bypassPermissions", RUN_AGENT)
         self.assertIn("--no-session-persistence", RUN_AGENT)
