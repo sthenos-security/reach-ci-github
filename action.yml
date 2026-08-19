@@ -90,7 +90,7 @@ inputs:
     required: false
     default: "false"
   reachable_dist_repo:
-    description: Distribution repository containing install.sh.
+    description: Fallback distribution repository used only when the first-party installer at https://sthenosec.com/download/install.sh is unavailable.
     required: false
     default: sthenos-security/reach-dist
   reachable_dist_base_url:

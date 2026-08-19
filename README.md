@@ -449,7 +449,7 @@ caller workflow.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `REACHABLE_DIST_REPO` | `sthenos-security/reach-dist` | Distribution repository containing `install.sh`. |
+| `REACHABLE_DIST_REPO` | `sthenos-security/reach-dist` | Fallback repo used only if the first-party installer at `https://sthenosec.com/download/install.sh` is unavailable. |
 
 ### Workflow Inputs
 
@@ -473,7 +473,7 @@ workflow calls this reusable workflow.
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
-| `reachable_dist_repo` | `sthenos-security/reach-dist` | Distribution repository containing `install.sh`. |
+| `reachable_dist_repo` | `sthenos-security/reach-dist` | Fallback repo used only if the first-party installer at `https://sthenosec.com/download/install.sh` is unavailable. |
 
 ### Runtime Environment
 
@@ -483,7 +483,7 @@ of setting these directly.
 
 | Environment variable | Derived from | Used for |
 |----------------------|--------------|----------|
-| `REACHABLE_DIST_REPO` | `reachable_dist_repo` | Installer source repository. |
+| `REACHABLE_DIST_REPO` | `reachable_dist_repo` | Fallback installer repo passed to the setup action. |
 | `REACHABLE_REMEDIATE_ENABLED` | `remediate` | Enables code-writing remediation. |
 | `REACHABLE_RESCAN_ONLY` | `rescan_only` | Verifies an existing branch without editing. |
 | `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, `anthropic-claude`, or `copilot-github`. |
@@ -517,7 +517,7 @@ demo-specific controls explicit.
 |--------------|-------|-----|
 | Caller workflow | `reach-testbed-github-go/.github/workflows/reachable-remediate*.yml` or a Marketplace demo wrapper | Small wrapper generated from the SDK shape. |
 | Reusable workflow | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Public customer-facing integration package. |
-| `reachable_dist_repo` | `sthenos-security/reach-dist` | Pulls the public release installer and wheels. |
+| Installer source | `https://sthenosec.com/download/install.sh` first, `sthenos-security/reach-dist` fallback | Keeps customer installs on the first-party manifest while preserving a GitHub fallback path. |
 | `ai_mode` | `openai-codex` | Exercises the default Codex lane. |
 | `prompt_profile` | `balanced` | Keeps fixes bounded for a demo-sized queue. |
 | `signal_types` | `all` | Exercises CVE, CWE, secret, DLP, and AI findings. |
