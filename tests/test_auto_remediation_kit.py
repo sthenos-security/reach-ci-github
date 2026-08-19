@@ -93,6 +93,7 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertNotIn("API_KEY_FILE", text)
             self.assertNotIn("AUTH_TOKEN_FILE", text)
             self.assertNotIn("--api-key ${", text)
+            self.assertIn("codex login --with-api-key >/dev/null 2>&1", text)
 
     def test_reusable_workflow_does_not_give_every_step_vendor_secrets(self) -> None:
         job_env = WORKFLOW.split("    steps:", 1)[0]

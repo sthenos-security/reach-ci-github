@@ -344,7 +344,7 @@ jobs:
           case "${REACHABLE_AGENT}" in
             codex)
               npm install -g @openai/codex
-              printenv OPENAI_API_KEY | codex login --with-api-key
+              printenv OPENAI_API_KEY | codex login --with-api-key >/dev/null 2>&1
               ;;
             claude)
               npm install -g @anthropic-ai/claude-code
