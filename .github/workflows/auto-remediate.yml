@@ -93,6 +93,7 @@ env:
 jobs:
   reachable:
     runs-on: ubuntu-latest
+    timeout-minutes: 240
     environment:
       name: github-pages
       url: ${{ steps.deploy-pages.outputs.page_url }}

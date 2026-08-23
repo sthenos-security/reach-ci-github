@@ -191,7 +191,7 @@ Recommended production defaults:
 |---------|-------------------|-----|
 | `ai_mode` | `openai-codex` | Public lane selector. Use `openai-gpt` for OpenAI scan-only, `openai-codex` for OpenAI plus Codex remediation, `anthropic-claude` for Anthropic plus Claude remediation, or `copilot-github` for async GitHub Copilot campaign dispatch. |
 | `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
-| `agent_timeout_sec` | `1800` | Per-batch coding-agent timeout. The timer resets for each remediation batch. |
+| `agent_timeout_sec` | `1800` | Per-batch coding-agent timeout. The timer resets for each remediation batch. The reusable workflow also has a 240-minute outer job cap for install, scans, proof, publishing, and PR handling. |
 | `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
@@ -202,6 +202,18 @@ They use latest-by-default Reachable installation, `fresh_scan=true`, and
 `max_batches=1` when proving install, scan, remediation handoff, branch push,
 proof scan, and PR wiring quickly. A production repository should increase
 batches only when it wants the workflow to address a larger queue in one run.
+
+## CI Agent Trust Model
+
+The Codex, Claude, and GitHub Copilot lanes are reference CI integrations for
+reviewable remediation. The synchronous Codex/Claude lanes run the selected
+coding agent non-interactively with repository write authority on a generated
+remediation branch; the `copilot-github` lane dispatches hosted GitHub Copilot
+tasks that produce reviewable PRs. In both cases, the security boundary is the
+GitHub workflow and repository policy: protected branches, trusted runners,
+masked provider keys, `GITHUB_TOKEN` permissions, fork-workflow approval, and
+human review before merge. Do not run code-changing remediation from untrusted
+forks or workflows that can expose CI secrets.
 
 ## SDK Usage
 
@@ -385,7 +397,7 @@ caller workflow.
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
 | `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
-| `rescan_strategy` | `each_batch` | `rescan_strategy` | `each_batch` or `final`. |
+| `rescan_strategy` | `each_batch` | `rescan_strategy` | `each_batch` or `final_only`. |
 | `fail_on` | `exploitable` | `fail_on` | Single customer-facing policy threshold. The workflow keeps the baseline non-blocking during remediation, then applies this threshold to the proof scan. |
 | `proof_fail_on` | empty | `proof_fail_on` | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
 | `create_pr` | `true` | `create_pr` | Opens a PR only after a branch is pushed. |
@@ -466,9 +478,9 @@ workflow calls this reusable workflow.
 | `prompt_profile` | `balanced` | Bundling profile passed to Reachable. |
 | `signal_types` | `all` | Signal families to include in the remediation bundle. |
 | `max_batches` | `3` | Maximum serialized remediation loops. The workflow stops early when no release blockers remain. |
-| `rescan_strategy` | `each_batch` | Rescan after each batch or only at the end. |
+| `rescan_strategy` | `each_batch` | Rescan after each batch or only at the end with `final_only`. |
 | `proof_fail_on` | empty | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
-| `scan_extra_flags` | empty | Optional additional flags passed to `reachctl scan`; keep empty unless Reachable support asks for a specific scan flag. |
+| `scan_extra_flags` | empty | Trusted maintainer-controlled flags passed to `reachctl scan`; keep empty unless Reachable support asks for a specific scan flag. |
 | `create_pr` | `true` | Open a PR after DB proof passes. |
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
@@ -494,7 +506,7 @@ of setting these directly.
 | `REACHABLE_RESCAN_STRATEGY` | `rescan_strategy` | Controls proof scan cadence. |
 | `REACHABLE_FAIL_ON` | `fail_on` | Scan/baseline threshold. Baseline is forced non-blocking during remediation. |
 | `REACHABLE_PROOF_FAIL_ON` | `proof_fail_on` or `fail_on` | Post-remediation proof threshold. |
-| `REACHABLE_SCAN_EXTRA_FLAGS` | `scan_extra_flags` | Additional scan flags, normally empty. |
+| `REACHABLE_SCAN_EXTRA_FLAGS` | `scan_extra_flags` | Trusted maintainer-controlled scan flags, normally empty. |
 | `REACHABLE_CREATE_PR` | `create_pr` | Controls PR creation. |
 | `REACHABLE_PUBLISH_REPORT` | `publish_report` | Controls proof artifact publication. |
 | `REACHABLE_REQUIRE_AI` | `require_ai` | Credential preflight behavior. |
