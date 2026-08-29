@@ -92,6 +92,7 @@ write_outputs() {
   fi
 }
 
+bundle_log="${RUNNER_TEMP:-/tmp}/reachable-bundle-output.txt"
 for batch in $(seq 1 "$max_batches"); do
   echo "== Reachable remediation batch ${batch}/${max_batches} =="
   echo "Reachable agent timeout for this batch: ${agent_timeout_sec}s"
@@ -108,15 +109,34 @@ for batch in $(seq 1 "$max_batches"); do
     --mode branch \
     --branch-name "$branch" \
     --profile "$profile" \
-    "${signal_args[@]}"
+    "${signal_args[@]}" | tee "$bundle_log"
 
   if [ ! -f .reachable/remediation-bundle/prompt.md ]; then
     echo "No remediation bundle was produced; stopping batch loop."
     break
   fi
 
+  # The prompt comes from the DATABASE, not from the file on disk.
+  #
+  # prompt.md is still written -- the bundle carries rules.json and ai-rules/
+  # that other steps consume -- but it is EVIDENCE of what was composed, not the
+  # input. Reading it back would reopen a window in which anything else running
+  # in this job (a dependency's install hook, a compromised earlier step) can
+  # rewrite the file between our write and the agent's read, while the agent is
+  # instructed to treat it as authoritative.
+  #
+  # `--emit-prompt --run-id` recomposes from remediation.db with the same
+  # composer the local path uses, so the text is byte-identical to what was
+  # recorded, and nothing on disk sits between the two.
+  run_id="$(sed -n 's/^ *run id: *//p' "$bundle_log" | tail -1)"
+  if [ -z "$run_id" ]; then
+    echo "remediate --context ci printed no run id; refusing to fall back to reading prompt.md from the workspace." >&2
+    exit 1
+  fi
+
   run_with_timeout "$agent_timeout_sec" \
-    "$agent_runner" "${REACHABLE_AGENT}" .reachable/remediation-bundle/prompt.md
+    bash -c 'reachctl remediate . --emit-prompt --run-id "$1" | "$2" "$3" -' \
+    _ "$run_id" "$agent_runner" "${REACHABLE_AGENT}"
 
   reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup || true
 
