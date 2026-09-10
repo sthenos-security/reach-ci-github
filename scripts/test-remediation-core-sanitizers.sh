@@ -17,6 +17,8 @@ case "${1:-}" in
   remediate)
     output_dir=""
     cleanup=false
+    emit_prompt=false
+    run_id=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --output-dir)
@@ -27,11 +29,30 @@ case "${1:-}" in
           cleanup=true
           shift
           ;;
+        --emit-prompt)
+          emit_prompt=true
+          shift
+          ;;
+        --run-id)
+          run_id="${2:-}"
+          shift 2
+          ;;
         *)
           shift
           ;;
       esac
     done
+    if [[ "$emit_prompt" == "true" ]]; then
+      # G1 contract: the prompt is recomposed from remediation.db by run id and
+      # arrives on stdout. Refuse an id we never issued -- a fake that answers
+      # any id would let the core pass while parsing the wrong line.
+      if [[ "$run_id" != "fake-run-001" ]]; then
+        echo "emit-prompt asked for unknown run id: $run_id" >&2
+        exit 2
+      fi
+      printf 'fake remediation prompt recomposed from db\n'
+      exit 0
+    fi
     if [[ "$output_dir" != ".reachable/remediation-bundle" ]]; then
       echo "missing expected --output-dir .reachable/remediation-bundle" >&2
       exit 2
@@ -44,6 +65,9 @@ case "${1:-}" in
     printf 'fake remediation prompt\n' > "$output_dir/prompt.md"
     printf '{"selected_rule_count":1,"selected_rules":[{"rule_id":"demo-rule"}]}\n' > "$output_dir/bundle.json"
     printf '{"rules":["demo-rule"]}\n' > "$output_dir/ai-rules/rules.json"
+    # G1 contract: the bundle step announces the run id the core must hand back
+    # to --emit-prompt; without this line the core refuses to proceed.
+    printf 'run id: fake-run-001\n'
     ;;
   scan)
     mkdir -p .reachable/ci-artifacts
@@ -62,7 +86,19 @@ cat > "$bin_dir/fake-agent.sh" <<'SH'
 set -euo pipefail
 agent="${1:?agent required}"
 prompt="${2:?prompt required}"
-test -f "$prompt"
+if [ "$prompt" = "-" ]; then
+  # G1 contract: the prompt arrives on stdin, never as a workspace file.
+  prompt_text="$(cat)"
+  case "$prompt_text" in
+    *"recomposed from db"*) ;;
+    *)
+      echo "agent runner got the wrong prompt on stdin: $prompt_text" >&2
+      exit 1
+      ;;
+  esac
+else
+  test -f "$prompt"
+fi
 printf 'agent=%s\n' "$agent" > remediation.txt
 SH
 chmod +x "$bin_dir/fake-agent.sh"

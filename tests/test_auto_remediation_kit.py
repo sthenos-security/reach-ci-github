@@ -110,7 +110,12 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("--verbose", RUN_AGENT)
         self.assertIn("--output-format stream-json", RUN_AGENT)
         self.assertIn("Apply the Reachable remediation task provided on stdin", RUN_AGENT)
-        self.assertIn('claude "${claude_args[@]}" -p "Apply the Reachable remediation task provided on stdin to this repository.', RUN_AGENT)
+        # The wrapper text is factored into $claude_wrapper (G1 refactor); the
+        # contract is that BOTH invocation branches pass it via -p and the prompt
+        # arrives on stdin -- not the literal inline string the old assertion pinned.
+        self.assertIn('claude_wrapper="Apply the Reachable remediation task provided on stdin', RUN_AGENT)
+        self.assertIn('claude "${claude_args[@]}" -p "$claude_wrapper"', RUN_AGENT)
+        self.assertIn('claude "${claude_args[@]}" -p "$claude_wrapper" < "$PROMPT_PATH"', RUN_AGENT)
         self.assertNotIn('claude "${claude_args[@]}" < .reachable/remediation-bundle/prompt.md', RUN_AGENT)
         self.assertNotIn("                  --print\n", RUN_AGENT)
 
