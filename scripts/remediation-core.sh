@@ -104,6 +104,9 @@ for batch in $(seq 1 "$max_batches"); do
   # the selected coding agent reads prompt.md from the checked-out repository.
   # reachctl's default CI output stays in user-scoped transient state unless an
   # orchestrator opts into a path, so keep this explicit and clean the same path.
+  # Standard path-B argv: ci/branch handoff. Do not pin --profile / --all /
+  # --batch-size / --max-iterations. max_batches is adapter handoffs, not
+  # reachctl iteration math.
   reachctl remediate . \
     --context ci \
     --output-dir .reachable/remediation-bundle \
