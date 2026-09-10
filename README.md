@@ -198,7 +198,7 @@ Recommended production defaults:
 | `ai_mode` | `openai-codex` | Public lane selector. Use `openai-gpt` for OpenAI scan-only, `openai-codex` for OpenAI plus Codex remediation, `anthropic-claude` for Anthropic plus Claude remediation, or `copilot-github` for async GitHub Copilot campaign dispatch. |
 | `agent_model` | empty | Optional remediation-model override passed to Codex or Claude when you intentionally want to test something else. |
 | `agent_timeout_sec` | `1800` | Per-batch coding-agent timeout. The timer resets for each remediation batch. The reusable workflow also has a 240-minute outer job cap for install, scans, proof, publishing, and PR handling. |
-| `max_batches` | `3` | Gives the agent multiple bounded passes without an open-ended loop. |
+| `max_batches` | `3` | Path-B adapter handoff bound (serialized bundle→agent loops). Not remediae `--max-iterations`; reachctl owns pass math on path A. |
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
 | `publish_report` | `true` | Gives reviewers a stable proof artifact when Reachable setup succeeded; otherwise the workflow skips report rendering instead of failing late. |
@@ -402,7 +402,7 @@ caller workflow.
 | `agent_timeout_sec` | `1800` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. The timer resets on every batch. |
 | `prompt_profile` | `balanced` | `prompt_profile` | `safe`, `balanced`, `aggressive`, `release`, or `nightly`. |
 | `signal_types` | `all` | `signal_types` | Comma-separated families or `all`. |
-| `max_batches` | `3` | `max_batches` | Must be 1-10. The loop stops early if DB proof is clean. |
+| `max_batches` | `3` | `max_batches` | Must be 1-10. Path-B handoff bound; stops early if DB proof is clean. |
 | `rescan_strategy` | `each_batch` | `rescan_strategy` | `each_batch` or `final_only`. |
 | `fail_on` | `exploitable` | `fail_on` | Single customer-facing policy threshold. The workflow keeps the baseline non-blocking during remediation, then applies this threshold to the proof scan. |
 | `proof_fail_on` | empty | `proof_fail_on` | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
@@ -483,7 +483,7 @@ workflow calls this reusable workflow.
 | `agent_timeout_sec` | `1800` | Per-batch timeout for the selected coding agent. The timeout resets on every remediation batch. |
 | `prompt_profile` | `balanced` | Legacy input retained for ledger metadata; remediae profile is not pinned by CI. |
 | `signal_types` | `all` | Signal families to include in the remediation bundle. `all` uses reachctl default scope (does not pass `--all`). |
-| `max_batches` | `3` | Maximum serialized remediation loops. The workflow stops early when no release blockers remain. |
+| `max_batches` | `3` | Maximum serialized path-B handoffs. Stops early when no release blockers remain. |
 | `rescan_strategy` | `each_batch` | Rescan after each batch or only at the end with `final_only`. |
 | `proof_fail_on` | empty | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
 | `scan_extra_flags` | empty | Trusted maintainer-controlled flags passed to `reachctl scan`; keep empty unless Reachable support asks for a specific scan flag. |
@@ -508,7 +508,7 @@ of setting these directly.
 | `REACHABLE_AGENT_TIMEOUT_SEC` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. |
 | `REACHABLE_PROMPT_PROFILE` | `prompt_profile` | Recorded for ledger/evidence only; remediae profile comes from installed reachctl (not pinned by CI). |
 | `REACHABLE_SIGNAL_TYPES` | `signal_types` | Selects signal families for the bundle. |
-| `REACHABLE_MAX_BATCHES` | `max_batches` | Bounds remediation loop count. |
+| `REACHABLE_MAX_BATCHES` | `max_batches` | Bounds path-B adapter handoffs (not remediae iteration pins). |
 | `REACHABLE_RESCAN_STRATEGY` | `rescan_strategy` | Controls proof scan cadence. |
 | `REACHABLE_FAIL_ON` | `fail_on` | Scan/baseline threshold. Baseline is forced non-blocking during remediation. |
 | `REACHABLE_PROOF_FAIL_ON` | `proof_fail_on` or `fail_on` | Post-remediation proof threshold. |
@@ -537,9 +537,9 @@ demo-specific controls explicit.
 | Reusable workflow | `sthenos-security/reach-ci-github/.github/workflows/auto-remediate.yml@v1` | Public customer-facing integration package. |
 | Installer source | `https://sthenosec.com/download/install.sh` first, `sthenos-security/reach-dist` fallback | Keeps customer installs on the first-party manifest while preserving a GitHub fallback path. |
 | `ai_mode` | `openai-codex` | Exercises the default Codex lane. |
-| `prompt_profile` | `balanced` | Keeps fixes bounded for a demo-sized queue. |
+| `prompt_profile` | `balanced` | Ledger only; remediae profile is not pinned by CI. |
 | `signal_types` | `all` | Exercises CVE, CWE, secret, DLP, and AI findings. |
-| `max_batches` | `1` for beta smoke, higher for full demos | Fast proof of the CI path; increase only when proving multi-batch remediation. |
+| `max_batches` | `1` for beta smoke, higher for full demos | Fast proof of path-B handoffs; increase only when proving multi-handoff CI. |
 | `rescan_strategy` | `each_batch` | Proves the branch after every batch. |
 | `fresh_scan` | `true` for beta smoke | Avoids cache hiding release/install regressions. |
 ## Published Evidence
