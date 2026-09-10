@@ -80,6 +80,9 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("::warning title=Reachable JSON export unavailable::", ROOT_ACTION)
         self.assertIn("::warning title=Reachable summary export unavailable::", ROOT_ACTION)
 
+    def test_marketplace_action_uploads_reachable_artifacts_on_failure(self) -> None:
+        self.assertIn("if: ${{ always() && inputs.upload_artifacts == 'true' }}", ROOT_ACTION)
+
     def test_secrets_are_not_persisted_to_github_env(self) -> None:
         for text in (WORKFLOW, ROOT_ACTION):
             self.assertNotIn('echo "REACHABLE_API_KEY=', text)

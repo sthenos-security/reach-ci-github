@@ -56,7 +56,8 @@ agent_timeout_sec="$(sanitize_positive_int "${REACHABLE_AGENT_TIMEOUT_SEC-}" 180
 max_batches="$(sanitize_positive_int "${REACHABLE_MAX_BATCHES-}" 3 REACHABLE_MAX_BATCHES)"
 rescan_strategy="$(sanitize_token "${REACHABLE_RESCAN_STRATEGY-}" each_batch)"
 signal_types="$(sanitize_token "${REACHABLE_SIGNAL_TYPES-}" all)"
-profile="$(sanitize_token "${REACHABLE_PROMPT_PROFILE-}" balanced)"
+# Profile is owned by the installed reachctl (default balanced). Do not pass
+# --profile from CI/CD.
 branch="${REACHABLE_REMEDIATION_BRANCH:?REACHABLE_REMEDIATION_BRANCH is required}"
 agent_runner="${REACHABLE_AGENT_RUNNER:-./scripts/run-agent.sh}"
 stage_paths_py="${REACHABLE_STAGE_PATHS_PY:-./scripts/stage-paths.py}"
@@ -73,9 +74,10 @@ case "$rescan_strategy" in
 esac
 
 signal_args=()
-if [ "$signal_types" = "all" ]; then
-  signal_args+=(--all)
-else
+# signal_types=all means "use reachctl default scope" (config default is all
+# families). Do not pass --all: that flag only exists to override a narrowed
+# config. Depth beyond defaults is --deep-remediation, not --all.
+if [ "$signal_types" != "all" ]; then
   IFS=',' read -ra families <<< "$signal_types"
   for family in "${families[@]}"; do
     family="$(echo "$family" | xargs)"
@@ -108,7 +110,6 @@ for batch in $(seq 1 "$max_batches"); do
     --agent "${REACHABLE_AGENT}" \
     --mode branch \
     --branch-name "$branch" \
-    --profile "$profile" \
     "${signal_args[@]}" | tee "$bundle_log"
 
   if [ ! -f .reachable/remediation-bundle/prompt.md ]; then

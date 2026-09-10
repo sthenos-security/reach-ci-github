@@ -481,8 +481,8 @@ workflow calls this reusable workflow.
 | `rescan_only` | `false` | Verify an existing branch without editing code. |
 | `ai_mode` | `openai-codex` | Selects the scan/provider, remediation-agent lane, or async `copilot-github` dispatch lane. |
 | `agent_timeout_sec` | `1800` | Per-batch timeout for the selected coding agent. The timeout resets on every remediation batch. |
-| `prompt_profile` | `balanced` | Bundling profile passed to Reachable. |
-| `signal_types` | `all` | Signal families to include in the remediation bundle. |
+| `prompt_profile` | `balanced` | Legacy input retained for ledger metadata; remediae profile is not pinned by CI. |
+| `signal_types` | `all` | Signal families to include in the remediation bundle. `all` uses reachctl default scope (does not pass `--all`). |
 | `max_batches` | `3` | Maximum serialized remediation loops. The workflow stops early when no release blockers remain. |
 | `rescan_strategy` | `each_batch` | Rescan after each batch or only at the end with `final_only`. |
 | `proof_fail_on` | empty | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
@@ -506,7 +506,7 @@ of setting these directly.
 | `REACHABLE_RESCAN_ONLY` | `rescan_only` | Verifies an existing branch without editing. |
 | `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, `anthropic-claude`, or `copilot-github`. |
 | `REACHABLE_AGENT_TIMEOUT_SEC` | `agent_timeout_sec` | Positive integer timeout applied to each coding-agent batch. |
-| `REACHABLE_PROMPT_PROFILE` | `prompt_profile` | Passed to `reachctl remediate`. |
+| `REACHABLE_PROMPT_PROFILE` | `prompt_profile` | Recorded for ledger/evidence only; remediae profile comes from installed reachctl (not pinned by CI). |
 | `REACHABLE_SIGNAL_TYPES` | `signal_types` | Selects signal families for the bundle. |
 | `REACHABLE_MAX_BATCHES` | `max_batches` | Bounds remediation loop count. |
 | `REACHABLE_RESCAN_STRATEGY` | `rescan_strategy` | Controls proof scan cadence. |
