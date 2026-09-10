@@ -473,10 +473,20 @@ runs:
         fi
         cp "$repo_db" .reachable/ci-artifacts/copilot-pre-dispatch.repo.db
         cp "$repo_db" .reachable/ci-artifacts/copilot-tasks.repo.db
+        # With --json the CLI prints its FAILURE payload to stdout too, and stdout
+        # is redirected into the artifact file -- so a failed doctor/dispatch used
+        # to exit 1 with the reason visible nowhere: the step died under set -e,
+        # every later step (including artifact upload) was skipped, and the log
+        # showed a bare "exit code 1" (2026-09-10, marketplace Copilot lane).
+        # On failure, surface the payload in the job log before exiting.
         reachctl copilot doctor \
           --repo "${GITHUB_REPOSITORY}" \
           --dispatch-kind agent_task \
-          --json > .reachable/ci-artifacts/copilot-doctor.json
+          --json > .reachable/ci-artifacts/copilot-doctor.json || {
+            echo "Copilot remediation doctor failed; its error payload follows." >&2
+            cat .reachable/ci-artifacts/copilot-doctor.json >&2 || true
+            exit 1
+          }
         reachctl copilot dispatch \
           --repo-db "$repo_db" \
           --bundle .reachable/remediation-bundle/bundle.json \
@@ -485,7 +495,11 @@ runs:
           --max-tasks 5 \
           --base-ref "${REACHABLE_TARGET_BRANCH}" \
           --dispatch-kind agent_task \
-          --json > .reachable/ci-artifacts/copilot-dispatch.json
+          --json > .reachable/ci-artifacts/copilot-dispatch.json || {
+            echo "Copilot dispatch failed; its error payload follows." >&2
+            cat .reachable/ci-artifacts/copilot-dispatch.json >&2 || true
+            exit 1
+          }
         task_count="$(python -c 'import json; from pathlib import Path; payload = json.loads(Path(".reachable/ci-artifacts/copilot-dispatch.json").read_text(encoding="utf-8")); print(len(payload.get("tasks") or []))')"
         echo "REACHABLE_COPILOT_TASK_COUNT=${task_count}" >> "$GITHUB_ENV"
         if [ "$task_count" -gt 0 ]; then
