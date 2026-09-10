@@ -1,5 +1,11 @@
 # Reachable CI for GitHub
 
+> **Early access (beta).** REACHABLE is in active beta: scanner releases ship
+> continuously, and the CI integration surfaces are stable — "Beta" in the
+> GitLab maturity sense (near-complete, supported, breaking changes announced
+> in advance). Early-adopter feedback shapes the product:
+> <support@sthenosec.com>.
+
 Reusable GitHub Actions integration for REACHABLE code exploitability analysis
 and risk posture reduction.
 
