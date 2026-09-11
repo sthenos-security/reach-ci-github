@@ -35,14 +35,15 @@ Canonical docs and entry points:
 - Primer: <https://sthenosec.com/docs/primer>
 - Auto-remediation overview: <https://sthenosec.com/resources/auto-remediation>
 - GitHub Marketplace action: <https://github.com/marketplace/actions/reachable-risk-exposure-reduction>
-- GitLab Catalog component: <https://gitlab.com/explore/catalog/sthenos-security-public/reach-testbed-gitlab-catalog>
+- GitLab Catalog component: <https://gitlab.com/explore/catalog/sthenos-security-public/reachable-risk-exposure-reduction>
+- Public repo grid: <https://github.com/sthenos-security/.github/blob/main/REACHABLE-REPOSITORIES.md>
 
 Related public CI/CD surfaces:
 
 | Repo | Role |
 |---|---|
 | [`REACHABLE Risk Exposure Reduction`](https://github.com/marketplace/actions/reachable-risk-exposure-reduction) | GitHub Marketplace action for customer installation. |
-| [`reachable` GitLab Catalog component](https://gitlab.com/explore/catalog/sthenos-security-public/reach-testbed-gitlab-catalog) | GitLab Catalog component for customer installation. |
+| [`reachable` GitLab Catalog component](https://gitlab.com/explore/catalog/sthenos-security-public/reachable-risk-exposure-reduction) | GitLab Catalog component for customer installation. |
 | [`reach-ci-github`](https://github.com/sthenos-security/reach-ci-github) | GitHub CI toolkit and Marketplace action package. |
 | [`reach-testbed-github-marketplace`](https://github.com/sthenos-security/reach-testbed-github-marketplace) | Marketplace-facing demo repo that consumes the GitHub toolkit. |
 | [`reach-testbed-github-go`](https://github.com/sthenos-security/reach-testbed-github-go) | Public GitHub demo repo for full remediation and scan-only runs with remediation disabled. |
