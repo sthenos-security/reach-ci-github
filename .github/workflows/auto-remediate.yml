@@ -369,12 +369,18 @@ jobs:
           # The profile must attach to the binary that actually executes:
           # codex ships its OWN bwrap inside its npm package, so a
           # /usr/bin/bwrap profile loads cleanly and attaches to nothing.
-          {
+          mapfile -t bwraps < <({
             command -v bwrap || true
-            find /usr/local/lib/node_modules "${HOME}/.npm-global" /usr/lib/node_modules \
-              -name bwrap -type f 2>/dev/null || true
-          } | sort -u | while read -r bwrap; do
-            [ -n "${bwrap}" ] || continue
+            for root in "$(npm root -g 2>/dev/null || true)" /usr/local/lib/node_modules \
+                        "${HOME}/.npm-global" /usr/lib/node_modules; do
+              [ -d "${root}" ] && find "${root}" -name bwrap -type f 2>/dev/null
+            done
+          } | sort -u)
+          if [ "${#bwraps[@]}" -eq 0 ]; then
+            echo "::warning::no bwrap binary found -- if the agent sandboxes tool"
+            echo "::warning::calls with bwrap it may still fail to start here"
+          fi
+          for bwrap in "${bwraps[@]}"; do
             name="agent-bwrap$(printf '%s' "${bwrap}" | tr -c 'A-Za-z0-9' '_')"
             printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
               "profile ${name} ${bwrap} flags=(unconfined) {" '  userns,' '}' \
