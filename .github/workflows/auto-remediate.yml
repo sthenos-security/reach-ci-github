@@ -361,6 +361,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Codex-only fix: Claude lanes run bypassPermissions and build no
+          # sandbox, so permitting a bwrap binary there would be a privilege
+          # grant with no consumer.
+          if [ "${REACHABLE_AGENT:-codex}" != "codex" ]; then
+            echo "skipped: only codex sandboxes tool calls with bwrap"
+            exit 0
+          fi
           # Ubuntu 23.10+ denies bwrap the unprivileged user namespace it
           # needs to bring up loopback, so codex's sandbox never starts and
           # every tool call fails -- codex exits 0 with an empty diff and the
