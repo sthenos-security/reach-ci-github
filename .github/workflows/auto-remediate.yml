@@ -356,6 +356,33 @@ jobs:
               ;;
           esac
 
+      - name: Permit the agent sandbox to build (Ubuntu AppArmor userns)
+        if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate && !inputs.rescan_only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ubuntu 23.10+ denies bwrap the unprivileged user namespace it
+          # needs to bring up loopback, so the agent's sandbox never starts
+          # and every tool call fails -- codex exits 0 with an empty diff and
+          # the run records "no files changed" as a real result. Fix measured
+          # on ubuntu-latest 2026-09-24 (reach-vibe-throwdown run 36068376869).
+          # The profile must attach to the binary that actually executes:
+          # codex ships its OWN bwrap inside its npm package, so a
+          # /usr/bin/bwrap profile loads cleanly and attaches to nothing.
+          {
+            command -v bwrap || true
+            find /usr/local/lib/node_modules "${HOME}/.npm-global" /usr/lib/node_modules \
+              -name bwrap -type f 2>/dev/null || true
+          } | sort -u | while read -r bwrap; do
+            [ -n "${bwrap}" ] || continue
+            name="agent-bwrap$(printf '%s' "${bwrap}" | tr -c 'A-Za-z0-9' '_')"
+            printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' '' \
+              "profile ${name} ${bwrap} flags=(unconfined) {" '  userns,' '}' \
+              | sudo tee "/etc/apparmor.d/${name}" >/dev/null
+            sudo apparmor_parser -r "/etc/apparmor.d/${name}"
+            echo "permitted userns for ${bwrap}"
+          done
+
       - name: Remediate and verify
         if: ${{ env.REACHABLE_SCAN_MODE != 'nop' && env.REACHABLE_AI_MODE != 'copilot-github' && inputs.remediate && !inputs.rescan_only }}
         uses: sthenos-security/reach-ci-github/actions/remediation-core@v1
