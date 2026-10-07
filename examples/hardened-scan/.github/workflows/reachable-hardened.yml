@@ -1,0 +1,167 @@
+# REACHABLE Security Scan — HARDENED lane (egress-contained)
+#
+# Same full scan as reachable.yml, but install and scan run inside a container
+# whose ONLY route to the internet is an allowlist proxy. Scanners execute over
+# untrusted repository content; in this template a compromised tool or a
+# malicious repo cannot phone home — anything off the allowlist is refused and
+# the refusal is logged (printed at the end of every run).
+#
+# Usage: copy BOTH files from this example directory into your repository's
+# .github/workflows/ (the workflow calls the script by that path).
+#
+# Requires a REACHABLE release newer than 1.0.0b214: earlier scanners strip
+# proxy settings from their child tools and misread a proxied environment as
+# offline, so the vulnerability DB refresh fails. The toolkit pulls the latest
+# wheel, so this is only a floor, not a pin.
+#
+# EDIT THE ALLOWLIST for your repository's ecosystems (Go module proxy, Maven,
+# crates.io, ...). A missing host fails LOUDLY with a TCP_DENIED line naming it
+# — add the host, never work around the proxy.
+
+name: REACHABLE Security Scan (hardened)
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly Monday 2am UTC
+  workflow_dispatch:
+    inputs:
+      fail_on:
+        description: 'Fail threshold'
+        type: choice
+        options: [critical, high, medium, any, none]
+        default: 'none'
+
+concurrency:
+  group: reachable-hardened-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Everything the contained job may reach. One host per entry; a leading dot
+  # covers subdomains. Grouped by why each is here:
+  ALLOWED_HOSTS: >-
+    deb.debian.org
+    .githubusercontent.com
+    github.com
+    api.github.com
+    codeload.github.com
+    .sigstore.dev
+    pypi.org
+    files.pythonhosted.org
+    registry.npmjs.org
+    .anchore.io
+    semgrep.dev
+    api.osv.dev
+    libraries.cgr.dev
+    api.first.org
+    www.cisa.gov
+    sthenosec.com
+  # ^ deb.debian.org: apt packages (curl, git) for the scan container itself.
+  #   .githubusercontent.com (suffix = all subdomains): GitHub's CDN family —
+  #   raw (install.sh), release-assets (the REACHABLE wheel redirects there),
+  #   objects (git LFS/clone data).
+  #   github.com + api/codeload: REACHABLE releases and dependency clones for
+  #   reachability analysis.
+  #   .sigstore.dev: the installer VERIFIES the wheel with cosign keyless —
+  #   that needs the TUF trust root (tuf-repo-cdn) and the Rekor transparency
+  #   log. Without these the install correctly fails CLOSED rather than
+  #   installing an unverified wheel.
+  #   semgrep.dev: registry rule packs the CWE step runs.
+  #   api.osv.dev / libraries.cgr.dev / api.first.org / www.cisa.gov:
+  #   vulnerability enrichment (OSV, Chainguard libraries, EPSS scores, CISA
+  #   KEV). Each degrades gracefully if you remove it; this list was measured
+  #   from a real contained scan's denial log, not guessed.
+  #   pypi/files.pythonhosted + registry.npmjs: package registries.
+  #   grype/toolbox-data.anchore.io: CVE database refresh.
+  #   sthenosec.com: REACHABLE package-threat feed.
+  # Add your ecosystem's hosts as needed, e.g.:
+  #   proxy.golang.org sum.golang.org          (Go)
+  #   repo.maven.apache.org repo1.maven.org    (Java)
+  #   static.crates.io index.crates.io         (Rust)
+  # AI-assisted lanes only if you set provider keys, e.g.:
+  #   api.anthropic.com api.openai.com openrouter.ai
+
+jobs:
+  security-scan:
+    name: Security Scan (hardened)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # SARIF upload to GitHub Security tab
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache REACHABLE data
+        uses: actions/cache@v4
+        with:
+          path: reachable-home
+          key: reachable-hardened-${{ runner.os }}-${{ hashFiles('**/requirements*.txt', '**/package-lock.json', '**/go.sum', '**/Cargo.lock') }}
+          restore-keys: reachable-hardened-${{ runner.os }}-
+
+      - name: Bring up the egress-contained lane
+        run: |
+          chmod +x .github/workflows/harden-egress.sh
+          .github/workflows/harden-egress.sh up
+
+      - name: Install + scan inside the lane
+        id: scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A bounded choice input, passed as env rather than interpolated into
+          # the script so nothing from the event can inject into bash.
+          FAIL_ON: ${{ github.event.inputs.fail_on || 'none' }}
+        run: |
+          mkdir -p reachable-home
+          set +e
+          .github/workflows/harden-egress.sh run --rm \
+            -v "$PWD:/workspace" -w /workspace \
+            -v "$PWD/reachable-home:/root/.reachable" \
+            -e GITHUB_TOKEN -e FAIL_ON \
+            python:3.12-slim bash -eu -c '
+              apt-get update -qq && apt-get install -y -qq curl git >/dev/null
+              curl -sL https://raw.githubusercontent.com/sthenos-security/reach-dist/main/install.sh | bash
+              export PATH="$HOME/.reachable/venv/bin:$PATH"
+              reachctl doctor --yes
+              reachctl scan /workspace \
+                --ci \
+                --fail-on "${FAIL_ON:-none}" \
+                --sarif /workspace/reachable.sarif \
+                --log-format jsonl
+            '
+          echo "exit=$?" >> $GITHUB_OUTPUT
+
+      - name: Show egress denials and tear the lane down
+        if: always()
+        run: .github/workflows/harden-egress.sh down
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: reachable.sarif
+          category: reachable
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reachable-dashboard-${{ github.run_number }}
+          path: reachable-home/scans/*/dashboard/
+          retention-days: 30
+
+      - name: Gate
+        if: steps.scan.outputs.exit == '2'
+        run: |
+          echo "::error::REACHABLE: findings at or above '${{ github.event.inputs.fail_on || 'none' }}' threshold"
+          exit 2
+
+      - name: Surface scan runtime errors
+        if: steps.scan.outputs.exit != '0' && steps.scan.outputs.exit != '2'
+        run: |
+          echo "::error::REACHABLE scan failed before policy evaluation (exit ${{ steps.scan.outputs.exit }})"
+          exit 1

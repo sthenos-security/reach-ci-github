@@ -354,6 +354,17 @@ Current product boundary:
 The same caller is available as a checked-in example at
 [`examples/basic/.github/workflows/reachable-remediation.yml`](examples/basic/.github/workflows/reachable-remediation.yml).
 
+### Egress-contained (hardened) scan
+
+[`examples/hardened-scan/`](examples/hardened-scan/) runs the full scan inside
+a container whose only internet route is an allowlist proxy on an internal
+docker network: a compromised tool or malicious repository content cannot
+phone home, anything off the allowlist is refused, and every refusal is
+printed (`TCP_DENIED`) at the end of the run. The allowlist ships measured
+from real contained scans and is edited at the top of the workflow. Copy both
+files from the example. Requires a scanner release newer than `1.0.0b214`
+(earlier releases misread proxied environments as offline).
+
 Then configure one model-provider secret:
 
 | Mode | Required Secret | Agent Lane |
