@@ -63,6 +63,14 @@ on:
       reachable_dist_base_url:
         type: string
         default: ""
+      reachable_source_ref:
+        description: >-
+          Optional. reach-core ref (branch/tag/SHA) to install FROM SOURCE via
+          the shared ci-preflight.sh, skipping install.sh entirely. Empty
+          (default) keeps today's wheel install. Needs the REACH_CORE_TOKEN
+          secret on the calling repo (reach-core is private).
+        type: string
+        default: ""
     secrets:
       OPENAI_API_KEY:
         required: false
@@ -75,6 +83,8 @@ on:
       MCP_GITHUB_TOKEN:
         required: false
       REACHABLE_COPILOT_USER_TOKEN:
+        required: false
+      REACH_CORE_TOKEN:
         required: false
 
 permissions:
@@ -270,6 +280,9 @@ jobs:
           dist-repo: ${{ inputs.reachable_dist_repo }}
           dist-base-url: ${{ inputs.reachable_dist_base_url }}
           fresh-scan: ${{ inputs.fresh_scan }}
+          source-ref: ${{ inputs.reachable_source_ref }}
+          source-token: ${{ secrets.REACH_CORE_TOKEN }}
+          agent: ${{ (env.REACHABLE_AGENT == 'claude' || env.REACHABLE_AGENT == 'codex') && env.REACHABLE_AGENT || '' }}
 
       - name: Write NOP integration artifacts
         if: ${{ env.REACHABLE_SCAN_MODE == 'nop' }}
