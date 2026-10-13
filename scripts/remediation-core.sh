@@ -145,7 +145,9 @@ for batch in $(seq 1 "$max_batches"); do
   reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup || true
 
   if [ "$rescan_strategy" = "each_batch" ]; then
-    reachctl scan . --ci --branch "$branch" --commit "$(git rev-parse HEAD)"
+    # Intermediate proof only. The final proof scan after the loop is the one
+    # that may publish to the Security Center; per-batch rescans stay in CI.
+    reachctl scan . --ci --no-publish --branch "$branch" --commit "$(git rev-parse HEAD)"
   fi
 done
 

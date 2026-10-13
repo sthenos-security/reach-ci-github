@@ -37,7 +37,7 @@ Reachable tokens are separate from workflow control:
 
 | Secret | Purpose |
 |--------|---------|
-| `REACHABLE_API_KEY` | Optional product/cloud licensing and enrichment. |
+| `REACHABLE_API_KEY` | Optional. REACHABLE Security Center key (`rk_live_...`); unlocks plan entitlements and, unless `publish_cloud=false`, uploads baseline and final proof scans to that organization. Not needed for CI-only scanning. |
 | `REACHABLE_GITHUB_TOKEN` | Optional GitHub metadata/package enrichment for the scanner. |
 | `MCP_GITHUB_TOKEN` | Recommended read-only GitHub source token for MCP GitHub cloning and package git clone fallback. Use a fine-grained PAT with `Contents: Read-only` on the repos Reachable should inspect. |
 | `OPENAI_API_KEY` | Required for the default Codex/OpenAI lane in customer-facing runs. |

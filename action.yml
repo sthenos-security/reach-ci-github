@@ -77,6 +77,10 @@ inputs:
     description: Publish the rendered proof page to GitHub Pages when report output exists.
     required: false
     default: "false"
+  publish_cloud:
+    description: When reachable_api_key is set, upload the baseline scan and the final proof scan to your REACHABLE Security Center organization. Set false to keep every scan inside CI (sets REACHABLE_AUTO_PUBLISH=0). Per-batch rescans never upload.
+    required: false
+    default: "true"
   artifact_name:
     description: Artifact name used when upload_artifacts=true.
     required: false
@@ -106,7 +110,7 @@ inputs:
     required: false
     default: ""
   reachable_api_key:
-    description: Optional Reachable paid-plan token.
+    description: REACHABLE API key (rk_live_...) from your Security Center organization. Unlocks the plan entitlements and, unless publish_cloud=false, uploads the baseline and final proof scans to that organization. Leave empty for CI-only operation with no cloud egress.
     required: false
     default: ""
   reachable_github_token:
@@ -177,6 +181,7 @@ runs:
         REACHABLE_PUBLISH_REPORT: ${{ inputs.publish_report }}
         REACHABLE_UPLOAD_ARTIFACTS: ${{ inputs.upload_artifacts }}
         REACHABLE_PUBLISH_PAGES: ${{ inputs.publish_pages }}
+        REACHABLE_PUBLISH_CLOUD: ${{ inputs.publish_cloud }}
         REACHABLE_REQUIRE_AI: ${{ inputs.require_ai }}
         REACHABLE_FRESH_SCAN: ${{ inputs.fresh_scan }}
         REACHABLE_TARGET_BRANCH_INPUT: ${{ inputs.target_branch }}
@@ -236,6 +241,7 @@ runs:
         normalized_publish_report="$(normalize_bool publish_report "${REACHABLE_PUBLISH_REPORT}")"
         normalized_upload_artifacts="$(normalize_bool upload_artifacts "${REACHABLE_UPLOAD_ARTIFACTS}")"
         normalized_publish_pages="$(normalize_bool publish_pages "${REACHABLE_PUBLISH_PAGES}")"
+        normalized_publish_cloud="$(normalize_bool publish_cloud "${REACHABLE_PUBLISH_CLOUD}")"
         normalized_require_ai="$(normalize_bool require_ai "${REACHABLE_REQUIRE_AI}")"
         normalized_fresh_scan="$(normalize_bool fresh_scan "${REACHABLE_FRESH_SCAN}")"
         echo "REACHABLE_REMEDIATE_ENABLED=${normalized_remediate}" >> "$GITHUB_ENV"
@@ -244,6 +250,12 @@ runs:
         echo "REACHABLE_PUBLISH_REPORT=${normalized_publish_report}" >> "$GITHUB_ENV"
         echo "REACHABLE_UPLOAD_ARTIFACTS=${normalized_upload_artifacts}" >> "$GITHUB_ENV"
         echo "REACHABLE_PUBLISH_PAGES=${normalized_publish_pages}" >> "$GITHUB_ENV"
+        echo "REACHABLE_PUBLISH_CLOUD=${normalized_publish_cloud}" >> "$GITHUB_ENV"
+        # reachctl scan auto-publishes whenever REACHABLE_API_KEY resolves, CI
+        # included. publish_cloud=false pins the CLI switch off for every scan.
+        if [ "${normalized_publish_cloud}" = "false" ]; then
+          echo "REACHABLE_AUTO_PUBLISH=0" >> "$GITHUB_ENV"
+        fi
         echo "REACHABLE_REQUIRE_AI=${normalized_require_ai}" >> "$GITHUB_ENV"
         echo "REACHABLE_FRESH_SCAN=${normalized_fresh_scan}" >> "$GITHUB_ENV"
         normalized_timeout="$(normalize_positive_int agent_timeout_sec "${REACHABLE_AGENT_TIMEOUT_SEC}")"

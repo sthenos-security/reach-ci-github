@@ -23,4 +23,7 @@ jobs:
       max_batches: 3
       rescan_strategy: each_batch
       create_pr: true
+      # publish_cloud: false   # keep scans in CI even when REACHABLE_API_KEY is set
+    # Picks up OPENAI_API_KEY (required) and, if present, the optional
+    # REACHABLE_API_KEY that links scans to your Security Center organization.
     secrets: inherit

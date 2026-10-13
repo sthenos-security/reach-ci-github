@@ -122,6 +122,21 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn('claude "${claude_args[@]}" < .reachable/remediation-bundle/prompt.md', RUN_AGENT)
         self.assertNotIn("                  --print\n", RUN_AGENT)
 
+    def test_cloud_publish_is_an_explicit_input_on_both_entrypoints(self) -> None:
+        # reachctl scan auto-publishes to the Security Center whenever
+        # REACHABLE_API_KEY resolves, CI included. The kit must expose that as
+        # a named switch and must not let per-batch rescans upload.
+        for surface in (ROOT_ACTION, WORKFLOW):
+            self.assertIn("publish_cloud:", surface)
+            self.assertIn("REACHABLE_PUBLISH_CLOUD: ${{ inputs.publish_cloud }}", surface)
+            self.assertIn('normalize_bool publish_cloud "${REACHABLE_PUBLISH_CLOUD}"', surface)
+            self.assertIn('echo "REACHABLE_AUTO_PUBLISH=0" >> "$GITHUB_ENV"', surface)
+        self.assertIn("uploads the baseline and final proof scans", ROOT_ACTION)
+        self.assertIn('reachctl scan . --ci --no-publish --branch "$branch"', REMEDIATION_CORE)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("| `publish_cloud` | `true` |", readme)
+        self.assertNotIn("Optional Reachable product/cloud entitlement or enrichment token", readme)
+
     def test_validator_tracks_publish_and_claude_contracts(self) -> None:
         self.assertIn("Reachable Python package is unavailable; skipping report publication.", VALIDATOR)
         self.assertIn("Apply the Reachable remediation task provided on stdin", VALIDATOR)

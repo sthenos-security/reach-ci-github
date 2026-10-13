@@ -102,6 +102,9 @@ jobs:
           publish_pages: "true"
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           mcp_github_token: ${{ secrets.MCP_GITHUB_TOKEN }}
+          # Optional. Links scans to your REACHABLE Security Center organization.
+          # Leave out for CI-only operation with no cloud egress.
+          reachable_api_key: ${{ secrets.REACHABLE_API_KEY }}
 ```
 
 The toolkit action defaults `target_branch` to the current checkout branch.
@@ -121,6 +124,17 @@ than the branch you want the remediation PR to target.
 - GitHub control token: GitHub Actions already provides `GITHUB_TOKEN`
   automatically for checkout, branch push, PR creation, artifact upload, and
   Pages publishing.
+
+**Optional: REACHABLE Security Center**
+
+- `REACHABLE_API_KEY` (`rk_live_...`): created once in your organization at
+  <https://sthenosec.com> (Settings, API Keys). Not needed to scan or
+  remediate. When set, the baseline and final proof scans upload to that
+  organization so the dashboard tracks CI posture over time; set
+  `publish_cloud: false` to keep the key for entitlements only. With the
+  reusable workflow and `secrets: inherit`, a repository or organization
+  secret of that name is picked up automatically. With the marketplace
+  action, pass it as `reachable_api_key`.
 
 ## What It Does
 
@@ -203,6 +217,7 @@ Recommended production defaults:
 | `rescan_strategy` | `each_batch` | Proves each batch against fresh DB evidence. |
 | `create_pr` | `true` | Keeps merge approval in normal GitHub review controls. |
 | `publish_report` | `true` | Gives reviewers a stable proof artifact when Reachable setup succeeded; otherwise the workflow skips report rendering instead of failing late. |
+| `publish_cloud` | `true` | With `REACHABLE_API_KEY` set, the baseline and final proof scans also upload to your REACHABLE Security Center organization. Set `false` to keep every scan inside CI. |
 | `fresh_scan` | `false` | Faster normal CI; use `true` for release smoke tests. |
 GitHub demo repositories consume this toolkit through the same customer path.
 They use latest-by-default Reachable installation, `fresh_scan=true`, and
@@ -420,6 +435,7 @@ caller workflow.
 | `proof_fail_on` | empty | `proof_fail_on` | Optional post-remediation proof threshold override. Empty reuses `fail_on`. |
 | `create_pr` | `true` | `create_pr` | Opens a PR only after a branch is pushed. |
 | `publish_report` | `true` | `publish_report` | Publishes sanitized proof artifacts. If Reachable never finished setup, the workflow skips report rendering instead of failing during cleanup. |
+| `publish_cloud` | `true` | `publish_cloud` | Uploads the baseline and final proof scans to the Security Center organization behind `REACHABLE_API_KEY`. `false` sets `REACHABLE_AUTO_PUBLISH=0` for the whole job. Per-batch rescans never upload. |
 | `require_ai` | `true` | `require_ai` | Fails early when the selected provider key is missing. |
 | `fresh_scan` | `false` | `fresh_scan` | Deletes `~/.reachable` before install/scan when true. |
 | `schedule_cron` | empty | `on.schedule` | Optional cron trigger in the generated caller workflow. |
@@ -467,7 +483,7 @@ GitHub Packages, the primer covers when to use a classic PAT with
 
 | Secret | Purpose |
 |--------|---------|
-| `REACHABLE_API_KEY` | Optional Reachable product/cloud entitlement or enrichment token. |
+| `REACHABLE_API_KEY` | REACHABLE API key (`rk_live_...`) from your Security Center organization. Unlocks plan entitlements and, unless `publish_cloud: false`, uploads the baseline and final proof scans to that organization. Leave unset for CI-only operation with no cloud egress. |
 | `REACHABLE_GITHUB_TOKEN` | Optional scanner enrichment token for GitHub metadata/package context. Not used to control CI. |
 | `MCP_GITHUB_TOKEN` | Optional GitHub source token for MCP GitHub cloning and git clone fallback. Not used to control CI. |
 
@@ -501,6 +517,7 @@ workflow calls this reusable workflow.
 | `scan_extra_flags` | empty | Trusted maintainer-controlled flags passed to `reachctl scan`; keep empty unless Reachable support asks for a specific scan flag. |
 | `create_pr` | `true` | Open a PR after DB proof passes. |
 | `publish_report` | `true` | Publish sanitized proof artifacts and status page. |
+| `publish_cloud` | `true` | Upload baseline and final proof scans to the Security Center when `reachable_api_key` is set. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
 | `reachable_dist_repo` | `sthenos-security/reach-dist` | Fallback repo used only if the first-party installer at `https://sthenosec.com/download/install.sh` is unavailable. |
@@ -527,6 +544,7 @@ of setting these directly.
 | `REACHABLE_SCAN_EXTRA_FLAGS` | `scan_extra_flags` | Trusted maintainer-controlled scan flags, normally empty. |
 | `REACHABLE_CREATE_PR` | `create_pr` | Controls PR creation. |
 | `REACHABLE_PUBLISH_REPORT` | `publish_report` | Controls proof artifact publication. |
+| `REACHABLE_PUBLISH_CLOUD` | `publish_cloud` | Controls Security Center upload; `false` also exports `REACHABLE_AUTO_PUBLISH=0`. |
 | `REACHABLE_REQUIRE_AI` | `require_ai` | Credential preflight behavior. |
 | `REACHABLE_FRESH_SCAN` | `fresh_scan` | Cache deletion behavior. |
 | `REACHABLE_AGENT` | resolved from `ai_mode` | `codex` or `claude` for synchronous remediation lanes; `copilot` for async dispatch. |
@@ -569,6 +587,13 @@ The workflow publishes sanitized evidence only:
 
 The workflow must not publish private remediation prompts, generated rules,
 agent transcripts, raw witnesses, or local databases.
+
+When `REACHABLE_API_KEY` is set and `publish_cloud` is `true` (default), the
+baseline scan and the final proof scan are also uploaded to the REACHABLE
+Security Center organization that owns the key, the same payload `reachctl
+publish` sends from a desktop. Per-batch rescans inside the remediation loop
+run with `--no-publish` and never leave the runner. Each upload counts against
+the organization's plan quota (Free: 3 repos / 100 scans per month).
 
 ## Runbook
 
