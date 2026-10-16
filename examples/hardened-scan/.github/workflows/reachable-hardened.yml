@@ -76,7 +76,13 @@ env:
   #   from a real contained scan's denial log, not guessed.
   #   pypi/files.pythonhosted + registry.npmjs: package registries.
   #   grype/toolbox-data.anchore.io: CVE database refresh.
-  #   sthenosec.com: REACHABLE package-threat feed.
+  #   sthenosec.com: REACHABLE package-threat feed, and the DEFAULT
+  #   publish endpoint. Do not edit this line to change where scans go:
+  #   harden-egress.sh derives the publish host from REACHABLE_ENDPOINT
+  #   (the same variable reachctl itself reads) and adds it automatically,
+  #   so pointing at dev, staging or an air-gap mirror needs no allowlist
+  #   edit at all. Set it with `reachctl doctor set reachable-endpoint`,
+  #   or export REACHABLE_ENDPOINT in the job.
   # Add your ecosystem's hosts as needed, e.g.:
   #   proxy.golang.org sum.golang.org          (Go)
   #   repo.maven.apache.org repo1.maven.org    (Java)

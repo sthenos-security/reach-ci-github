@@ -251,10 +251,15 @@ runs:
         echo "REACHABLE_UPLOAD_ARTIFACTS=${normalized_upload_artifacts}" >> "$GITHUB_ENV"
         echo "REACHABLE_PUBLISH_PAGES=${normalized_publish_pages}" >> "$GITHUB_ENV"
         echo "REACHABLE_PUBLISH_CLOUD=${normalized_publish_cloud}" >> "$GITHUB_ENV"
-        # reachctl scan auto-publishes whenever REACHABLE_API_KEY resolves, CI
-        # included. publish_cloud=false pins the CLI switch off for every scan.
+        # Publishing from CI is OPT-IN on the CLI side: a key on a build
+        # agent is not consent, so `reachctl scan` no longer publishes
+        # just because REACHABLE_API_KEY resolves. This switch is now set
+        # BOTH ways -- =1 is what actually turns publishing on, and
+        # omitting it would silently stop every customer's uploads.
         if [ "${normalized_publish_cloud}" = "false" ]; then
           echo "REACHABLE_AUTO_PUBLISH=0" >> "$GITHUB_ENV"
+        else
+          echo "REACHABLE_AUTO_PUBLISH=1" >> "$GITHUB_ENV"
         fi
         echo "REACHABLE_REQUIRE_AI=${normalized_require_ai}" >> "$GITHUB_ENV"
         echo "REACHABLE_FRESH_SCAN=${normalized_fresh_scan}" >> "$GITHUB_ENV"
@@ -392,6 +397,17 @@ runs:
         baseline_fail_on="${REACHABLE_FAIL_ON}"
         if [ "${REACHABLE_REMEDIATE_ENABLED}" = "true" ] || [ "${REACHABLE_RESCAN_ONLY}" = "true" ]; then
           baseline_fail_on="none"
+        fi
+        # PUBLISH-BY-SCAN-ROLE-v15 2.2: the loop stamps the role on every
+        # scan it spawns. This baseline is a campaign_entry ONLY when
+        # remediation actually follows -- with remediate=false nothing is
+        # being fixed, so it is a plain observation of the tree.
+        # run_id ties the entry scan to the final scan and the attestation.
+        if [ "${REACHABLE_REMEDIATE_ENABLED}" = "true" ]; then
+          export REACHABLE_SCAN_ROLE=campaign_entry
+          export REACHABLE_REMEDIATION_RUN_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
+        else
+          export REACHABLE_SCAN_ROLE=observation
         fi
         reachctl scan . --ci \
           --fail-on "${baseline_fail_on}" \
@@ -538,6 +554,10 @@ runs:
         fi
         # shellcheck disable=SC2206
         extra_args=(${REACHABLE_SCAN_EXTRA_FLAGS})
+        # The tree as the campaign left it (2.2). Publishes, and carries the
+        # same run_id as its entry scan so the cloud can pair them.
+        export REACHABLE_SCAN_ROLE=campaign_final
+        export REACHABLE_REMEDIATION_RUN_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
         reachctl scan . --ci \
           --fail-on "${REACHABLE_PROOF_FAIL_ON}" \
           --branch "$branch" \

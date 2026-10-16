@@ -26,11 +26,42 @@ PROXY_PORT=3128
 PROXY_IMAGE="${PROXY_IMAGE:-ubuntu/squid:latest}"
 STATE_DIR="${RUNNER_TEMP:-/tmp}/${LANE_NAME}"
 
+# The REACHABLE cloud host is DERIVED, never listed by hand.
+#
+# reachctl resolves its endpoint from REACHABLE_ENDPOINT, falling back to
+# https://sthenosec.com. The allowlist has to name that same host, and the
+# two drift the moment anyone hardcodes it: point the scanner at dev,
+# staging, or an air-gap mirror and the proxy refuses the publish with a
+# TCP_DENIED naming a host the operator never typed. Reading the product's
+# own variable keeps one source of truth -- this is not a second knob to
+# configure, it is the same one.
+reachable_endpoint_host() {
+  endpoint="${REACHABLE_ENDPOINT:-https://sthenosec.com}"
+  # strip scheme, then any path, then any :port and user@ prefix
+  host="${endpoint#*://}"
+  host="${host%%/*}"
+  host="${host##*@}"
+  host="${host%%:*}"
+  printf '%s' "${host}"
+}
+
 up() {
   if [ -z "${ALLOWED_HOSTS:-}" ]; then
     echo "::error::ALLOWED_HOSTS is empty — refusing to build a proxy that can reach nothing" >&2
     exit 1
   fi
+
+  cloud_host="$(reachable_endpoint_host)"
+  if [ -n "${cloud_host}" ]; then
+    case " ${ALLOWED_HOSTS} " in
+      *" ${cloud_host} "*) ;;
+      *)
+        echo "hardened lane: allowing the configured REACHABLE endpoint ${cloud_host}"
+        ALLOWED_HOSTS="${ALLOWED_HOSTS} ${cloud_host}"
+        ;;
+    esac
+  fi
+
   mkdir -p "${STATE_DIR}"
   {
     echo "http_port ${PROXY_PORT}"

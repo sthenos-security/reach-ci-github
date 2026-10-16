@@ -145,9 +145,18 @@ for batch in $(seq 1 "$max_batches"); do
   reachctl remediate . --output-dir .reachable/remediation-bundle --cleanup || true
 
   if [ "$rescan_strategy" = "each_batch" ]; then
-    # Intermediate proof only. The final proof scan after the loop is the one
-    # that may publish to the Security Center; per-batch rescans stay in CI.
-    reachctl scan . --ci --no-publish --branch "$branch" --commit "$(git rev-parse HEAD)"
+    # Intermediate proof only. A campaign_attempt measures a half-fixed
+    # tree -- some findings closed, others mid-edit -- which is a true
+    # statement about nothing, so it must never publish
+    # (PUBLISH-BY-SCAN-ROLE-v15 5). The role is what enforces that now:
+    # --no-publish said the same thing, but only here, by hand, so the
+    # next rescan anybody adds would have published by default. With the
+    # role stamped the scan refuses on its own, and it skips building a
+    # cloud payload at all (2.3). --no-publish is kept as a belt: an
+    # older reachctl that does not know about roles still honours it.
+    REACHABLE_SCAN_ROLE=campaign_attempt \
+    REACHABLE_REMEDIATION_RUN_ID="${REACHABLE_REMEDIATION_RUN_ID:-}" \
+      reachctl scan . --ci --no-publish --branch "$branch" --commit "$(git rev-parse HEAD)"
   fi
 done
 

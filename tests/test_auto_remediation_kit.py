@@ -190,3 +190,117 @@ class WorkflowContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScanRoleStampTests(unittest.TestCase):
+    """Every scan this kit spawns must say what it is.
+
+    PUBLISH-BY-SCAN-ROLE-v15 §2.2: the loop stamps `scan_role` and
+    `run_id` on every scan it spawns, and §5 forbids a `campaign_attempt`
+    from publishing. Before this the per-batch rescan was held back by a
+    hand-placed `--no-publish` at one call site, so the next rescan anyone
+    added would have published a half-fixed tree by default.
+    """
+
+    #: Must match reachable/core/scan_roles.py::VALID_SCAN_ROLES. A value
+    #: outside this set does not degrade quietly -- reachctl RAISES on an
+    #: unrecognised role, so a typo here fails every customer scan.
+    VALID_ROLES = frozenset(
+        {"observation", "campaign_entry", "campaign_attempt", "campaign_final"}
+    )
+
+    def _stamped_roles(self, text: str) -> set[str]:
+        import re
+
+        return set(re.findall(r"REACHABLE_SCAN_ROLE=([A-Za-z_]+)", text))
+
+    def test_every_stamped_role_is_one_reachctl_accepts(self) -> None:
+        for name, text in (
+            ("action.yml", ROOT_ACTION),
+            ("auto-remediate.yml", WORKFLOW),
+            ("remediation-core.sh", REMEDIATION_CORE),
+        ):
+            for role in self._stamped_roles(text):
+                with self.subTest(file=name, role=role):
+                    self.assertIn(
+                        role,
+                        self.VALID_ROLES,
+                        f"{name} stamps {role!r}, which reachctl rejects -- "
+                        f"every scan in this pipeline would fail",
+                    )
+
+    def test_the_per_batch_rescan_is_an_attempt_and_never_publishes(self) -> None:
+        self.assertIn("REACHABLE_SCAN_ROLE=campaign_attempt", REMEDIATION_CORE)
+        # Belt kept alongside the role: an older reachctl that predates
+        # roles still honours the flag.
+        self.assertIn("--no-publish", REMEDIATION_CORE)
+
+    def test_the_baseline_is_an_entry_only_when_remediation_follows(self) -> None:
+        """With remediate=false nothing is being fixed, so the baseline is
+        a plain observation -- labelling it `campaign_entry` would open a
+        campaign that never happens."""
+        for name, text in (("action.yml", ROOT_ACTION), ("auto-remediate.yml", WORKFLOW)):
+            with self.subTest(file=name):
+                self.assertIn("REACHABLE_SCAN_ROLE=campaign_entry", text)
+                self.assertIn("REACHABLE_SCAN_ROLE=observation", text)
+                self.assertIn('if [ "${REACHABLE_REMEDIATE_ENABLED}" = "true" ]; then', text)
+
+    def test_the_final_proof_scan_is_stamped_final(self) -> None:
+        for name, text in (("action.yml", ROOT_ACTION), ("auto-remediate.yml", WORKFLOW)):
+            with self.subTest(file=name):
+                self.assertIn("REACHABLE_SCAN_ROLE=campaign_final", text)
+
+    def test_the_campaign_carries_one_run_id(self) -> None:
+        for name, text in (("action.yml", ROOT_ACTION), ("auto-remediate.yml", WORKFLOW)):
+            with self.subTest(file=name):
+                self.assertIn("REACHABLE_REMEDIATION_RUN_ID", text)
+
+    def test_publishing_is_switched_on_explicitly_not_inferred(self) -> None:
+        """reachctl no longer publishes from CI just because a key
+        resolves -- a key on a build agent is not consent. The kit must
+        set the switch ON, or every customer's uploads stop silently."""
+        for name, text in (("action.yml", ROOT_ACTION), ("auto-remediate.yml", WORKFLOW)):
+            with self.subTest(file=name):
+                self.assertIn("REACHABLE_AUTO_PUBLISH=1", text)
+                self.assertIn("REACHABLE_AUTO_PUBLISH=0", text)
+
+
+class HardenedLaneEgressTests(unittest.TestCase):
+    """The egress allowlist must follow the configured endpoint.
+
+    The hardened example routes all traffic through an allowlist proxy.
+    It named `sthenosec.com` literally, so a customer pointing reachctl
+    at dev, staging or an air-gap mirror had their publish refused by
+    their own proxy with a TCP_DENIED for a host they never typed --
+    and the fix looked like "edit the allowlist", creating a second
+    place the endpoint is configured.
+    """
+
+    HARDEN = (
+        ROOT / "examples" / "hardened-scan" / ".github" / "workflows"
+        / "harden-egress.sh"
+    ).read_text(encoding="utf-8")
+    HARDENED_WORKFLOW = (
+        ROOT / "examples" / "hardened-scan" / ".github" / "workflows"
+        / "reachable-hardened.yml"
+    ).read_text(encoding="utf-8")
+
+    def test_the_publish_host_is_derived_from_the_product_variable(self) -> None:
+        """REACHABLE_ENDPOINT is what reachctl itself reads. Reading the
+        same one keeps a single source of truth instead of adding a knob."""
+        self.assertIn("REACHABLE_ENDPOINT", self.HARDEN)
+        self.assertIn("reachable_endpoint_host", self.HARDEN)
+
+    def test_the_derived_host_is_added_to_the_allowlist(self) -> None:
+        self.assertIn('ALLOWED_HOSTS="${ALLOWED_HOSTS} ${cloud_host}"', self.HARDEN)
+
+    def test_it_falls_back_to_the_production_default(self) -> None:
+        """An unset endpoint must still allow production, or the default
+        configuration breaks."""
+        self.assertIn('${REACHABLE_ENDPOINT:-https://sthenosec.com}', self.HARDEN)
+
+    def test_the_template_says_not_to_hand_edit_the_host(self) -> None:
+        """Without this the obvious fix is to add a second host by hand,
+        which is the drift the derivation removes."""
+        self.assertIn("Do not edit this line to change where scans go", self.HARDENED_WORKFLOW)
+        self.assertIn("reachctl doctor set reachable-endpoint", self.HARDENED_WORKFLOW)
