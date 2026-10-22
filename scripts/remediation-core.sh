@@ -156,7 +156,7 @@ for batch in $(seq 1 "$max_batches"); do
     # older reachctl that does not know about roles still honours it.
     REACHABLE_SCAN_ROLE=campaign_attempt \
     REACHABLE_REMEDIATION_RUN_ID="${REACHABLE_REMEDIATION_RUN_ID:-}" \
-      reachctl scan . --ci --no-publish --branch "$branch" --commit "$(git rev-parse HEAD)"
+      reachctl scan . --ci --no-publish --branch "$branch" --commit "$(git rev-parse HEAD)" --no-dashboard
   fi
 done
 

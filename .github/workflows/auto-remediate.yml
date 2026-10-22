@@ -353,7 +353,7 @@ jobs:
           else
             export REACHABLE_SCAN_ROLE=observation
           fi
-          reachctl scan . --ci \
+          reachctl scan . --no-dashboard --ci \
             --fail-on "${baseline_fail_on}" \
             --branch "${GITHUB_REF_NAME:-${{ inputs.target_branch }}}" \
             --commit "$(git rev-parse HEAD)" \
@@ -529,7 +529,7 @@ jobs:
           # same run_id as its entry scan so the cloud can pair them.
           export REACHABLE_SCAN_ROLE=campaign_final
           export REACHABLE_REMEDIATION_RUN_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
-          reachctl scan . --ci \
+          reachctl scan . --no-dashboard --ci \
             --fail-on "${REACHABLE_PROOF_FAIL_ON}" \
             --branch "$branch" \
             --commit "$(git rev-parse HEAD)" \
