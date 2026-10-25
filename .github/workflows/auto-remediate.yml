@@ -413,8 +413,8 @@ jobs:
           # every tool call fails -- codex exits 0 with an empty diff and the
           # run records "no files changed" as a real result. Claude is
           # unaffected: our lanes run it with bypassPermissions, which builds
-          # no sandbox. Fix measured on ubuntu-latest 2026-09-24
-          # (reach-vibe-throwdown run 36068376869).
+          # no sandbox. Fix measured on ubuntu-latest 2026-09-24 against a
+          # real codex sandboxed run internally.
           # The profile must attach to the binary that actually executes:
           # codex ships its OWN bwrap inside its npm package, so a
           # /usr/bin/bwrap profile loads cleanly and attaches to nothing.

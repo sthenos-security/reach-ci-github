@@ -133,8 +133,8 @@ class WorkflowContractTests(unittest.TestCase):
             self.assertIn('echo "REACHABLE_AUTO_PUBLISH=0" >> "$GITHUB_ENV"', surface)
         self.assertIn("uploads the baseline and final proof scans", ROOT_ACTION)
         self.assertIn('reachctl scan . --ci --no-publish --branch "$branch"', REMEDIATION_CORE)
-        # The dashboard follows the command line, not a CI variable (reach-core
-        # b8041b89), so a pipeline that does not publish it must say so.
+        # The dashboard follows the command line, not a CI variable, so a
+        # pipeline that does not publish it must say so.
         self.assertIn('--commit "$(git rev-parse HEAD)" --no-dashboard', REMEDIATION_CORE)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("| `publish_cloud` | `true` |", readme)
