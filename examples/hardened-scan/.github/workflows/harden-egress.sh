@@ -7,8 +7,8 @@
 # process that honours them can reach only the allowlist, and every denial is
 # logged (TCP_DENIED) and printed by `down`.
 #
-# This is the same mechanism REACHABLE's own benchmark harness uses to contain
-# coding agents (reach-vibe-lab, REACH_LANE_HARDENED).
+# This is the same mechanism REACHABLE's own internal benchmark harness uses
+# to contain coding agents.
 #
 # Usage (see reachable-hardened.yml for the full workflow):
 #   ALLOWED_HOSTS="pypi.org files.pythonhosted.org ..." ./harden-egress.sh up
