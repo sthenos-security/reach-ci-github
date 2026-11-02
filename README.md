@@ -1,5 +1,10 @@
 # Reachable CI for GitHub
 
+[![Latest release](https://img.shields.io/github/v/release/sthenos-security/reach-ci-github?include_prereleases&label=action)](https://github.com/sthenos-security/reach-ci-github/releases)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-REACHABLE-blue?logo=github)](https://github.com/marketplace/actions/reachable-risk-exposure-reduction)
+[![Status: early access (beta)](https://img.shields.io/badge/status-early%20access%20(beta)-orange)](https://sthenosec.com)
+[![Sthenos Security](https://img.shields.io/badge/Sthenos%20Security-sthenosec.com-B22222)](https://sthenosec.com)
+
 > **Early access (beta).** REACHABLE is in active beta: scanner releases ship
 > continuously, and the CI integration surfaces are stable — "Beta" in the
 > GitLab maturity sense (near-complete, supported, breaking changes announced
