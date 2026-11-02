@@ -1,0 +1,13 @@
+REACHABLE GitHub CI examples
+Copyright 2026 Sthenos Security, Inc.
+
+The files in this examples/ directory are licensed under the Apache License,
+Version 2.0 (see LICENSE in this directory). Copy and change them freely.
+
+This license covers only examples/. The rest of this repository (the
+REACHABLE GitHub toolkit) and the REACHABLE scanner it installs are governed
+by their own license terms.
+
+"REACHABLE", "Sthenos" and "Sthenos Security" are trademarks of Sthenos
+Security, Inc. The Apache License does not grant permission to use them
+(Apache License 2.0, Section 6).
