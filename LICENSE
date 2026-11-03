@@ -1,18 +1,159 @@
-REACHABLE GitHub toolkit
-Copyright (c) 2026 Sthenos Security, Inc. All rights reserved.
-LicenseRef-Sthenos-Proprietary
+REACHABLE™ PROPRIETARY SOFTWARE LICENSE
+========================================
 
-Everything in this repository except the examples/ directory is part of
-REACHABLE and is licensed under the REACHABLE Proprietary Software License:
-https://github.com/sthenos-security/reach-dist/blob/main/LICENSE
+Copyright © 2026 Sthenos Security, Inc. All rights reserved.
 
-That license lets you use this toolkit in your own CI workflows under your
-REACHABLE plan (Free or paid). It does not let you copy, modify, or
-redistribute the toolkit.
+Contact: info@sthenosec.com
 
-The examples/ directory is licensed separately under the Apache License,
-Version 2.0; see examples/LICENSE and examples/NOTICE. Copy and change those
-files freely.
+NOTICE: This software and its documentation are proprietary to Sthenos Security, Inc.
+("Licensor") and are protected by copyright law and international treaties.
+Unauthorized reproduction, distribution, or use of this software, in whole
+or in part, is strictly prohibited and may result in civil and criminal
+penalties.
 
-"REACHABLE", "Sthenos" and "Sthenos Security" are trademarks of Sthenos
-Security, Inc.
+1. LICENSE GRANT
+-----------------
+Subject to the terms of this License, Licensor grants you a limited,
+non-exclusive, non-transferable, revocable license to use this software
+under one of the following tiers:
+
+  a) FREE — You may use this software at no cost, for an unlimited
+     duration, subject to the usage limits of the Free plan. The Free
+     plan currently permits use with up to 3 repositories and includes
+     local scanning and agent-remediation workflows where available,
+     including Bring Your Own Token (BYOT) AI provider use where
+     configured. No credit card is required.
+
+  b) PAID (SOLO / STARTER / TEAM / ENTERPRISE) — You may use this
+     software under the terms of a paid subscription or commercial
+     agreement with Licensor. Paid tiers provide additional repository
+     capacity, cloud workspace or dashboard capabilities where available,
+     retention, support, and other features as described on the REACHABLE
+     Pricing page or in a separately executed agreement.
+
+2. RESTRICTIONS
+---------------
+You may NOT:
+  a) Copy, modify, adapt, translate, or create derivative works of
+     the software;
+  b) Reverse engineer, disassemble, decompile, or otherwise attempt
+     to derive the source code of the software;
+  c) Distribute, sublicense, lease, rent, loan, or otherwise transfer
+     the software to any third party;
+  d) Remove, alter, or obscure any proprietary notices, labels, or
+     marks on the software;
+  e) Use the software to develop competing products or services;
+  f) Exceed the usage limits of your tier (e.g., repository count)
+     without upgrading to an appropriate paid plan.
+
+3. INTELLECTUAL PROPERTY
+------------------------
+This software contains proprietary algorithms, methods, and trade secrets,
+including but not limited to:
+  - Multi-signal security correlation engine
+  - Reachability analysis algorithms
+  - Cloud backend infrastructure and APIs
+  - Risk assessment and verdict computation methods
+  - Compliance mapping frameworks
+
+All intellectual property rights in the software, including patents,
+copyrights, trade secrets, and trademarks, are and shall remain the
+exclusive property of Licensor.
+
+4. CONFIDENTIALITY
+------------------
+You acknowledge that the software contains confidential and proprietary
+information. You agree to maintain the confidentiality of the software
+and not to disclose any part of it to third parties without prior
+written consent from Licensor.
+
+5. NO WARRANTY
+--------------
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. LICENSOR DOES NOT
+WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE OR UNINTERRUPTED.
+
+6. LIMITATION OF LIABILITY
+--------------------------
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
+SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED
+TO LOSS OF PROFITS, DATA, OR USE, ARISING OUT OF OR IN CONNECTION WITH
+THIS LICENSE OR THE USE OF THE SOFTWARE, EVEN IF LICENSOR HAS BEEN
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+7. TERMINATION
+--------------
+This License is effective until terminated. Licensor may terminate this
+License immediately upon written notice if you breach any provision of
+this License. Upon termination, you must destroy all copies of the
+software in your possession. The Community tier license remains in
+effect indefinitely provided you comply with these terms.
+
+8. THIRD-PARTY SOFTWARE
+-----------------------
+REACHABLE uses third-party software, tools, public vulnerability data, and
+security standards under their respective licenses and terms. Those notices
+are maintained in THIRD_PARTY_NOTICES in the official distribution repository.
+
+9. OFFICIAL REPOSITORIES AND DISTRIBUTION
+-----------------------------------------
+Official Sthenos Security public repositories are published under:
+
+  https://github.com/sthenos-security
+
+The REACHABLE distribution repository, including this license and third-party
+notices, is maintained at:
+
+  https://github.com/sthenos-security/reach-dist
+
+Install REACHABLE only from official Sthenos Security domains, signed release
+artifacts, or repositories linked from Sthenos Security documentation. Public
+testbeds, examples, and integration repositories may be removed, renamed, or
+deprecated and should not be treated as distribution authority unless the
+current documentation says so.
+
+10. PUBLIC SECURITY FEED
+------------------------
+The public REACHABLE Security Feed is free to access and use for defensive
+security research, vulnerability management, internal risk review, and
+security-posture analysis. You may reference, quote, or link to the feed with
+attribution to Sthenos Security.
+
+You may not use the feed to attack third-party systems, evade security
+controls, identify victims for exploitation, or repackage or resell the feed
+as a competing commercial intelligence feed without written permission from
+Sthenos Security.
+
+The feed is provided for informational and defensive purposes only. It is not
+a warranty that a package, skill, MCP server, repository, or artifact is safe,
+unsafe, complete, current, or fit for a particular purpose. Sthenos Security
+may change, rate-limit, remove, or discontinue feed content at any time.
+
+11. COMMERCIAL LICENSING
+------------------------
+For paid plans, enterprise deployment, custom agreements, or feed licensing
+questions, please contact:
+
+  Sthenos Security
+  Email: info@sthenosec.com
+
+12. GOVERNING LAW
+----------------
+This License shall be governed by and construed in accordance with the
+laws of the State of California, United States, without regard to its
+conflict of law provisions.
+
+13. ENTIRE AGREEMENT
+--------------------
+This License constitutes the entire agreement between you and Licensor
+regarding the software and supersedes all prior agreements and
+understandings, whether written or oral.
+
+By using this software, you acknowledge that you have read this License,
+understand it, and agree to be bound by its terms and conditions.
+
+================================================================================
+REACHABLE is a trademark of Sthenos Security.
+Patent Pending.
+================================================================================
