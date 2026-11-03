@@ -148,14 +148,16 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn('run_with_timeout \\"$agent_timeout_sec\\"', VALIDATOR)
         self.assertIn("marketplace action contract ok", VALIDATOR)
 
-    def test_setup_and_pr_actions_have_ci_fallbacks(self) -> None:
+    def test_setup_installs_from_one_place_and_pr_action_reports_rejection(self) -> None:
         setup = (ROOT / "actions" / "setup-reachable" / "action.yml").read_text(encoding="utf-8")
         pr_action = (ROOT / "actions" / "open-remediation-pr" / "action.yml").read_text(encoding="utf-8")
         self.assertIn("dist-base-url:", setup)
         self.assertIn('export REACHABLE_DIST_BASE_URL="${{ inputs.dist-base-url }}"', setup)
         self.assertIn('public_installer_url="https://sthenosec.com/download/install.sh"', setup)
-        self.assertIn('fallback_installer_url="https://raw.githubusercontent.com/${{ inputs.dist-repo }}/main/install.sh"', setup)
-        self.assertIn('Reachable public installer attempt ${attempt} failed; trying fallback repo installer.', setup)
+        # One installer, no fallback (Al, 2026-11-02).
+        self.assertNotIn("fallback_installer_url", setup)
+        self.assertNotIn("reach-dist/main/install.sh", setup)
+        self.assertNotIn("dist-repo", setup)
         self.assertIn("for attempt in 1 2 3", setup)
         self.assertIn("Reachable installer failed after", setup)
         self.assertIn("pr-created=false", pr_action)

@@ -94,7 +94,7 @@ inputs:
     required: false
     default: "false"
   reachable_dist_repo:
-    description: Fallback distribution repository used only when the first-party installer at https://sthenosec.com/download/install.sh is unavailable.
+    description: Ignored. REACHABLE installs only from https://sthenosec.com/download/install.sh, with no fallback; this input stays declared so existing callers that pass it do not fail.
     required: false
     default: sthenos-security/reach-dist
   reachable_dist_base_url:
@@ -340,7 +340,6 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        echo "REACHABLE_DIST_REPO=${{ inputs.reachable_dist_repo }}" >> "$GITHUB_ENV"
         echo "REACHABLE_DIST_BASE_URL=${{ inputs.reachable_dist_base_url }}" >> "$GITHUB_ENV"
 
     - name: Setup Reachable
@@ -352,7 +351,6 @@ runs:
         MCP_GITHUB_TOKEN: ${{ inputs.mcp_github_token }}
         GITHUB_TOKEN: ${{ github.token }}
       with:
-        dist-repo: ${{ inputs.reachable_dist_repo }}
         dist-base-url: ${{ inputs.reachable_dist_base_url }}
         fresh-scan: ${{ inputs.fresh_scan }}
 

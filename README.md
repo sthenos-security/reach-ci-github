@@ -500,7 +500,6 @@ caller workflow.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `REACHABLE_DIST_REPO` | `sthenos-security/reach-dist` | Fallback repo used only if the first-party installer at `https://sthenosec.com/download/install.sh` is unavailable. |
 
 ### Workflow Inputs
 
@@ -525,7 +524,7 @@ workflow calls this reusable workflow.
 | `publish_cloud` | `true` | Upload baseline and final proof scans to the Security Center when `reachable_api_key` is set. |
 | `require_ai` | `true` | Fail early if the selected provider key is missing. |
 | `fresh_scan` | `false` | Delete the local Reachable cache before the scan. |
-| `reachable_dist_repo` | `sthenos-security/reach-dist` | Fallback repo used only if the first-party installer at `https://sthenosec.com/download/install.sh` is unavailable. |
+| `reachable_dist_repo` | `sthenos-security/reach-dist` | Ignored. REACHABLE installs only from `https://sthenosec.com/download/install.sh`, with no fallback; kept so existing callers do not fail. |
 
 ### Runtime Environment
 
@@ -535,7 +534,6 @@ of setting these directly.
 
 | Environment variable | Derived from | Used for |
 |----------------------|--------------|----------|
-| `REACHABLE_DIST_REPO` | `reachable_dist_repo` | Fallback installer repo passed to the setup action. |
 | `REACHABLE_REMEDIATE_ENABLED` | `remediate` | Enables code-writing remediation. |
 | `REACHABLE_RESCAN_ONLY` | `rescan_only` | Verifies an existing branch without editing. |
 | `REACHABLE_AI_MODE` | `ai_mode` | Selects `openai-gpt`, `openai-codex`, `anthropic-claude`, or `copilot-github`. |

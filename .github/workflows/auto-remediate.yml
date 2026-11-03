@@ -61,6 +61,7 @@ on:
         type: boolean
         default: false
       reachable_dist_repo:
+        # Ignored. REACHABLE installs only from https://sthenosec.com/download/install.sh, with no fallback; this input stays declared so existing callers that pass it do not fail.
         type: string
         default: sthenos-security/reach-dist
       reachable_dist_base_url:
@@ -111,7 +112,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy-pages.outputs.page_url }}
     env:
-      REACHABLE_DIST_REPO: ${{ inputs.reachable_dist_repo }}
       REACHABLE_REMEDIATE_ENABLED: ${{ inputs.remediate }}
       REACHABLE_RESCAN_ONLY: ${{ inputs.rescan_only }}
       REACHABLE_AI_MODE: ${{ inputs.ai_mode }}
@@ -293,7 +293,6 @@ jobs:
           MCP_GITHUB_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
         with:
-          dist-repo: ${{ inputs.reachable_dist_repo }}
           dist-base-url: ${{ inputs.reachable_dist_base_url }}
           fresh-scan: ${{ inputs.fresh_scan }}
           source-ref: ${{ inputs.reachable_source_ref }}
